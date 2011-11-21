@@ -18,6 +18,8 @@ import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.ParseException;
 
 import org.jivesoftware.smack.Chat;
+import org.jivesoftware.smack.ChatManager;
+import org.jivesoftware.smack.ChatManagerListener;
 import org.jivesoftware.smack.Connection;
 import org.jivesoftware.smack.ConnectionConfiguration;
 import org.jivesoftware.smack.MessageListener;
@@ -27,17 +29,26 @@ import org.jivesoftware.smack.XMPPConnection;
 import org.jivesoftware.smack.XMPPException;
 import org.jivesoftware.smack.packet.Message;
 import org.jivesoftware.smack.SASLAuthentication;
+import org.jivesoftware.smack.PacketListener;
+import org.jivesoftware.smack.packet.Packet;
+import org.jivesoftware.smackx.muc.MultiUserChat;
+import org.jivesoftware.smackx.muc.DiscussionHistory;
 
 class javabot implements MessageListener{
   XMPPConnection con;
 
   // Login to Server
-  public void login(String user, String pass, String server, String res, String auth) throws XMPPException{
+  public void login(String user, String pass, String server, String res, String auth){
+    try{
     ConnectionConfiguration config = new ConnectionConfiguration( server, 5222, server );
     con = new XMPPConnection( config );
     con.connect();
     SASLAuthentication.supportSASLMechanism( auth, 0 );
     con.login( user, pass, res );
+    }catch( XMPPException e ){ 
+      System.out.println( "Connection failed: " + e.getMessage() );
+      System.exit(1);
+    }
   }
 
   // Dissconect from Server
@@ -57,12 +68,12 @@ class javabot implements MessageListener{
     System.out.println(chat.getParticipant() + " says: " + message.getBody());
   }
 
-  public static void main(String args[]) throws XMPPException, IOException{
+  public static void main(String args[]) throws IOException{
     // Main variables must be set
     String botJid, botPass, botNick, botRoom, botServer;
 
     // This are the optional arguments, if not set these are the default values
-    String botResource = "JavaBot v0.1";
+    String botResource = "JavaJabberBot v0.1";
     String botAuth = "DIGEST-MD5";
 
     try {
@@ -103,27 +114,51 @@ class javabot implements MessageListener{
 
 	// turn on the enhanced debugger
 	//XMPPConnection.DEBUG_ENABLED = true;
-        
-	// Enter your login information here
+
+        // Logon to Server
 	c.login( botJid, botPass, botServer, botResource, botAuth );
-    
-	//c.displayBuddyList();
-    
-	System.out.println("-----");
-    
-	System.out.println("Who do you want to talk to? - Type contacts full email address:");
-	String talkTo = br.readLine();
-    
-	System.out.println("-----");
-	System.out.println("All messages will be sent to " + talkTo);
-	System.out.println("Enter your message in the console:");
-	System.out.println("-----\n");
-    
-	while( !(msg=br.readLine()).equals("bye"))
-	{
-	    c.sendMessage(msg, talkTo);
+	System.out.println("Connected to Server.");
+
+	// Register User if not regis
+	final MultiUserChat muc = new MultiUserChat( c.con, botRoom + "@conference." + botServer );
+
+	// Listener for being kicked
+	// Rejoin if kicked
+
+	// This Listener is responsible for private messages
+	ChatManager chatmanager = c.con.getChatManager();
+	c.con.getChatManager().addChatListener(new ChatManagerListener(){
+	  public void chatCreated(final Chat chat, final boolean createdLocally){
+	    chat.addMessageListener(new MessageListener(){
+	      public void processMessage(Chat chat, Message message){
+		System.out.println("Private message: " + (message != null ? message.getBody() : "NULL") + " from: " + (message != null ? message.getFrom() : "NULL"));
+	      }
+	    });
+	  }
+	});
+
+	// This Listener is responsible for NUC messages
+	muc.addMessageListener(new PacketListener(){
+	  public void processPacket(Packet p){
+	    if( p instanceof Message ){
+	      Message msg = ( Message ) p;
+	      new MUCMessages( msg.getBody(), msg.getFrom(), muc ).start();
+	    }
+	  }
+	});
+
+	// Join Room
+	DiscussionHistory hist = new DiscussionHistory();
+	hist.setMaxChars(0);
+	try{
+	  muc.join( botNick, botPass, hist, 1000 );
 	}
-    
+	catch( XMPPException e ){ System.out.println( "Could not join the MUC: " + e.getMessage() ); }
+	
+	// Loop forever
+	boolean run = true;
+	while( run ){}
+
 	c.disconnect();
 	System.exit(0);
       }
