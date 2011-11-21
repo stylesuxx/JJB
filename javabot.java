@@ -75,6 +75,7 @@ class javabot implements MessageListener{
     // This are the optional arguments, if not set these are the default values
     String botResource = "JavaJabberBot v0.1";
     String botAuth = "DIGEST-MD5";
+    //final String admin = "";
 
     try {
       Options opt = new Options();
@@ -86,15 +87,16 @@ class javabot implements MessageListener{
       opt.addOption( "r", true, "The room to join" );
       opt.addOption( "n", true, "The nick to use in the channel" );
       opt.addOption( "c", true, "Resource" );
+      opt.addOption( "admin", true, "JID of admin" );
       opt.addOption( "e", true, "Encription [ PLAIN | DIGEST-MD5 ]" );
 
       BasicParser parser = new BasicParser();
       CommandLine cl = parser.parse( opt, args );
 
       // In case user wants help or some main arguments are missing print the Help
-      if( cl.hasOption( 'h' ) || !cl.hasOption( 'j' ) || !cl.hasOption( 'p' ) || !cl.hasOption( 's' ) || !cl.hasOption( 'r' ) || !cl.hasOption( 'n' ) ) {
+      if( cl.hasOption( 'h' ) || !cl.hasOption( "admin" ) || !cl.hasOption( 'j' ) || !cl.hasOption( 'p' ) || !cl.hasOption( 's' ) || !cl.hasOption( 'r' ) || !cl.hasOption( 'n' ) ) {
 	HelpFormatter f = new HelpFormatter();
-        f.printHelp( "javabot -j <Jid> -p <Password> -s <Server> -r <Room> -n <Nick>", opt );
+        f.printHelp( "javabot -j <user> -p <Password> -s <Server> -r <Room> -n <Nick> -admin <JID>", opt );
       }
       // Here is where the magic happens
       else{
@@ -105,7 +107,8 @@ class javabot implements MessageListener{
 	botRoom = cl.getOptionValue( "r" );
 	botNick = cl.getOptionValue( "n" );
 	if( cl.hasOption( 'c' ) ) botResource = cl.getOptionValue( "c" );
-	if( cl.hasOption( 'e' ) ) botResource = cl.getOptionValue( "e" );
+	if( cl.hasOption( 'e' ) ) botAuth = cl.getOptionValue( "e" );
+	final String admin = cl.getOptionValue( "admin" );
 
 	// declare variables
 	javabot c = new javabot();
@@ -132,6 +135,7 @@ class javabot implements MessageListener{
 	    chat.addMessageListener(new MessageListener(){
 	      public void processMessage(Chat chat, Message message){
 		System.out.println("Private message: " + (message != null ? message.getBody() : "NULL") + " from: " + (message != null ? message.getFrom() : "NULL"));
+		new PrivateMessages( message.getBody(), message.getFrom(), admin, chat ).start();
 	      }
 	    });
 	  }
@@ -142,6 +146,7 @@ class javabot implements MessageListener{
 	  public void processPacket(Packet p){
 	    if( p instanceof Message ){
 	      Message msg = ( Message ) p;
+	      System.out.println( msg.getBody() + ": " + msg.getFrom());
 	      new MUCMessages( msg.getBody(), msg.getFrom(), muc ).start();
 	    }
 	  }
