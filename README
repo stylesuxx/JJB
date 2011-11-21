@@ -1,0 +1,7 @@
+-= Java Jabber Bot v0.1 =-
+
+Steps to get this Bot running:
+* clone git repo
+* add projects libs in lib dir to your classpath
+* compile: javac javabot.java
+* run: java javabot <params>
