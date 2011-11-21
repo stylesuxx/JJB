@@ -17,6 +17,7 @@ import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.ParseException;
 
+import org.jivesoftware.smackx.muc.Occupant;
 import org.jivesoftware.smack.Chat;
 import org.jivesoftware.smack.ChatManager;
 import org.jivesoftware.smack.ChatManagerListener;
@@ -146,7 +147,8 @@ class javabot implements MessageListener{
 	  public void processPacket(Packet p){
 	    if( p instanceof Message ){
 	      Message msg = ( Message ) p;
-	      System.out.println( msg.getBody() + ": " + msg.getFrom());
+	      //Occupant o = muc.getOccupant( msg.getFrom() );
+	      //System.out.println( "The JID is: " + o.getJid() );
 	      new MUCMessages( msg.getBody(), msg.getFrom(), muc ).start();
 	    }
 	  }

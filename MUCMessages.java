@@ -48,11 +48,14 @@ class MUCMessages extends Thread{
     } catch( XMPPException e ) { System.out.println( "Could not send message to MUC. (" + message + ")" ); }
   }
 
+  private void reg2DB(){}
+
   public void run(){
     if( message.equals( "ping" ) ) sendMessage( "pong" ); 		// Use this to check if Bot is alive
     if( message.equals( "time") ) sendMessage( timeDate() );		// Print time and Date
     if( message.equals( "shows") ) sendMessage( showUpcomingTV() );	// Print upcoming shows
     if( message.equals( "help" ) ) messageUser( help() );		// send Help to user
+    if( message.equals( "register" ) ) reg2DB();			// Register User to DB
   }
 
   // Returns time and date
@@ -123,6 +126,7 @@ class MUCMessages extends Thread{
     return "Help:\n"
 	  +"ping\t\t Bot answers with \"pong\".\n"
 	  +"time\t Print current time and date.\n"
-	  +"shows\t Shows airing in the next 24h.";
+	  +"shows\t Shows airing in the next 24h.\n"
+	  +"register\t Registers your JID to the Database.";
   }
 }
