@@ -1,6 +1,5 @@
 import java.io.File;
 import java.util.ArrayList;
-
 import com.almworks.sqlite4java.SQLiteConnection;
 import com.almworks.sqlite4java.SQLiteException;
 import com.almworks.sqlite4java.SQLiteStatement;
@@ -18,6 +17,7 @@ public class DataBase{
   static private File dbFile;
   static private SQLiteConnection db;
   SQLiteQueue queue;
+  boolean log = true;
 
   /** Constructor with own database
     * @param database Location of database to use
@@ -54,7 +54,7 @@ public class DataBase{
     // Create DB if not already existant
     try{
       SQLiteStatement[] st = {
-	db.prepare( "create table user (userID INTEGER PRIMARY KEY AUTOINCREMENT, Jid TEXT, status TEXT, userStart DATE);"),
+	db.prepare( "create table user (Jid TEXT PRIMARY KEY, status TEXT, date DATE);"),
 	db.prepare( "create table tv (tvKey INTEGER PRIMARY KEY, showname TEXT, airtime TEXT, airday TEXT, timezone TEXT, status TEXT);"),
 	db.prepare( "create table stats (statID INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, value TEXT)" )
       };
@@ -73,6 +73,7 @@ public class DataBase{
     */
   public void disconnect(){
     db.dispose();
+    queue.stop( true );
   }
 
   /** Returns TVEntity of one given show
@@ -195,8 +196,8 @@ public class DataBase{
 	    st.dispose();
 	  }catch( SQLiteException e ){
 	    System.out.println( "Show is already in Database" );
-	    st = db.prepare("SELECT showname FROM tv WHERE tvKey = ? ");
-	    st.bind(1, showID );
+	    st = connection.prepare("SELECT showname FROM tv WHERE tvKey = ? ");
+	      st.bind(1, showID );
 	    st.step();
 	    st.dispose();
 	  }	           	
@@ -272,7 +273,7 @@ public class DataBase{
 	boolean toReturn = false;
 
 	try{
-	  st = db.prepare("DELETE FROM tv WHERE tvKey = ? ");
+	  st = connection.prepare("DELETE FROM tv WHERE tvKey = ? ");
 	  st.bind( 1, showID );
 	  st.step();
 	  st.dispose();
@@ -285,4 +286,263 @@ public class DataBase{
       }
     }).complete();
   }
+
+  // This part is for the Users
+
+  /** Register a new User
+    * @param jid Jid to register
+    * @return boolean True if User could be added
+    * TESTED
+    */
+  public boolean registerUser( final String jid ){
+    return queue.execute( new SQLiteJob<Boolean>(){
+      protected Boolean job(SQLiteConnection connection){
+	SQLiteStatement st = null;
+	boolean toReturn = false;
+
+	try{
+	  st = connection.prepare("INSERT into user ( Jid, status, date ) VALUES( ?, ?, ? );");
+	  st.bind(1, jid);
+	  st.bind(2, "registered");
+	  st.bind(3, "Here comes the date and timestamp");
+	  st.step();
+	  st.dispose();
+	}catch( SQLiteException e ){
+	  if( log )System.out.println( "Log: Insert Error: User already in database" );
+	  return false;
+	}
+	return true;
+      }
+    }).complete();
+  }
+
+  /** Deletes User from database
+    * @param jid JID to remove from database
+    * @return boolean True if usere was removed from database
+    * TESTED
+    * - no exception if user is not in database
+    */
+  public boolean unregisterUser( final String jid ){
+  return queue.execute( new SQLiteJob<Boolean>(){
+      protected Boolean job(SQLiteConnection connection){
+	SQLiteStatement st = null;
+	boolean toReturn = false;
+
+	try{
+	  st = connection.prepare("DELETE FROM user WHERE Jid = ? ");
+	  st.bind(1, jid);
+	  st.step();
+	  st.dispose();
+	}catch( SQLiteException e ){
+	  if( log ) System.out.println( "Log: Delete Error: User not in database" );
+	  return false;
+	}
+	return true;
+      }
+    }).complete();  
+  }
+
+  /** Approves a User which has already registered
+    * @param jid Jid of user to approve
+    * @return boolean
+    * TESTED
+    * - Does nt throw exception if user not in DB
+    */
+  public boolean approveUser( final String jid ){
+    return queue.execute( new SQLiteJob<Boolean>(){
+      protected Boolean job(SQLiteConnection connection){
+	SQLiteStatement st = null;
+	boolean toReturn = false;
+
+	try{
+	  st = connection.prepare("UPDATE user SET status='approved' WHERE Jid = ? ");
+	  st.bind( 1, jid );
+	  st.step();
+	  st.dispose();
+	}catch( SQLiteException e ){
+	  System.out.println( "Log: Error updating User entry!" );
+	  return false;
+	}
+	
+	return true;
+      }
+    }).complete();
+  }
+
+  /** Promote user to admin
+    * @param jid Jid of user to promote
+    * @return boolen
+    * TESTED
+    * - does not throw Exception if user to promote does not exist
+    */
+  public boolean setAdmin( final String jid ){
+    return queue.execute( new SQLiteJob<Boolean>(){
+      protected Boolean job(SQLiteConnection connection){
+	SQLiteStatement st = null;
+	boolean toReturn = false;
+
+	try{
+	  st = connection.prepare("UPDATE user SET status='admin' WHERE Jid = ? ");
+	  st.bind( 1, jid );
+	  st.step();
+	  st.dispose();
+	}catch( SQLiteException e ){
+	  System.out.println( "Log: Error updating User entry!" );
+	  return false;
+	}
+	
+	return true;
+      }
+    }).complete();
+  }
+
+  /** Returns true if the JID is admin
+    * @param jid Jid to check
+    * @return boolean
+    */
+  public boolean isAdminUser( final String jid ){ 
+    return queue.execute( new SQLiteJob<Boolean>(){
+      protected Boolean job(SQLiteConnection connection){
+	SQLiteStatement st = null;
+	boolean toReturn = false;
+
+	try{
+	  st = connection.prepare("select status FROM user WHERE Jid = ? ");
+	  st.bind( 1, jid );
+	  st.step();
+	  if( st.columnString(0).equals( "admin" ) ){
+	    st.dispose();
+	    return true;
+	  }
+	}catch( SQLiteException e ){
+	  if( log ) System.out.println( "Log: Select Error: No such Jid found" );
+	  e.printStackTrace();
+	  return false;
+	}
+	return false;
+      }
+    }).complete();
+  }
+
+  /** Returns true if the JID is approved
+    * @param jid Jid to check
+    * @return boolean
+    * TESTED
+    */
+  public boolean isApprovedUser( final String jid ){
+    return queue.execute( new SQLiteJob<Boolean>(){
+      protected Boolean job(SQLiteConnection connection){
+	SQLiteStatement st = null;
+	boolean toReturn = false;
+
+	try{
+	  st = connection.prepare("select status FROM user WHERE Jid = ? ");
+	  st.bind( 1, jid );
+	  st.step();
+	  if( st.columnString(0).equals( "admin" ) | st.columnString(0).equals( "approved" ) ){
+	    st.dispose();
+	    return true;
+	  }
+	}catch( SQLiteException e ){
+	  System.out.println( "Log: Select Error: No such Jid found" );
+	  e.printStackTrace();
+	  return false;
+	}
+	return false;
+      }
+    }).complete();
+  }
+
+  /** Returns true if the JID is registered      
+    * @param jid Jid to check
+    * @return boolean
+    * TESTED
+    */
+  public boolean isRegisteredUser( final String jid ){
+    return queue.execute( new SQLiteJob<Boolean>(){
+      protected Boolean job(SQLiteConnection connection){
+	SQLiteStatement st = null;
+	boolean toReturn = false;
+
+	try{
+	  st = connection.prepare("select status FROM user WHERE Jid = ? ");
+	  st.bind( 1, jid );
+	  st.step();
+	  st.dispose();
+	}catch( SQLiteException e ){
+	  if( log ) System.out.println( "Log: Select Error: No such Jid found" );
+	  return false;
+	}
+	return true;
+      }
+    }).complete();
+  }
+  
+
+  // TESTED
+  public ArrayList<String> getRegisteredUsers(){
+    return queue.execute( new SQLiteJob<ArrayList<String>>(){
+      protected ArrayList<String> job(SQLiteConnection connection){
+	ArrayList<String> toReturn = new ArrayList<String>();
+
+	try{
+	  SQLiteStatement st = connection.prepare( "SELECT Jid from user WHERE status = 'registered'" );
+	  try {
+	    while( st.step() ){
+	      toReturn.add( st.columnString(0) );
+	    }
+	  } finally {
+	    st.dispose();
+	  }
+	}catch( Exception e ){ System.out.println("Log: Select Error: Could not get requested users" ); }
+
+	return toReturn;
+      }
+    }).complete();
+  }
+
+  // TESTED
+  public ArrayList<String> getApprovedUsers(){
+    return queue.execute( new SQLiteJob<ArrayList<String>>(){
+      protected ArrayList<String> job(SQLiteConnection connection){
+	ArrayList<String> toReturn = new ArrayList<String>();
+
+	try{
+	  SQLiteStatement st = connection.prepare( "SELECT Jid from user WHERE status = 'approved' OR status = 'admin'" );
+	  try {
+	    while( st.step() ){
+	      toReturn.add( st.columnString(0) );
+	    }
+	  } finally {
+	    st.dispose();
+	  }
+	}catch( Exception e ){ System.out.println("Log: Select Error: Could not get requested users" ); }
+
+	return toReturn;
+      }
+    }).complete();
+  }
+
+  //TESTED
+  public ArrayList<String> getAdminUsers(){
+    return queue.execute( new SQLiteJob<ArrayList<String>>(){
+      protected ArrayList<String> job(SQLiteConnection connection){
+	ArrayList<String> toReturn = new ArrayList<String>();
+
+	try{
+	  SQLiteStatement st = connection.prepare( "SELECT Jid from user WHERE status = 'admin'" );
+	  try {
+	    while( st.step() ){
+	      toReturn.add( st.columnString(0) );
+	    }
+	  } finally {
+	    st.dispose();
+	  }
+	}catch( Exception e ){ System.out.println("Log: Select Error: Could not get requested users" ); }
+
+	return toReturn;
+      }
+    }).complete();
+  }
+
 }

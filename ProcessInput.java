@@ -9,11 +9,11 @@ import com.almworks.sqlite4java.SQLiteQueue;
   * All processes are queued and processed in a thread
   */
 public class ProcessInput extends Thread{
-  DataBase dbase = new DataBase();
-  boolean process = true;
-  ArrayList<Job> jobs = new ArrayList<Job>();
-  MultiUserChat muc;
-  boolean running = false;
+  private DataBase dbase = new DataBase();
+  private boolean process = true;
+  private ArrayList<Job> jobs = new ArrayList<Job>();
+  private MultiUserChat muc;
+  private boolean running = false;
 
   /** Default Constructor
     * @param muc The MUC we are in
@@ -158,13 +158,16 @@ public class ProcessInput extends Thread{
       else if( j.getMessage().equals( "shows" ) ) muc.sendMessage( showsList() );
       else if( j.getMessage().equals( "shows never" ) ) muc.sendMessage( showsNever() );
       else if( j.getMessage().equals( "shows requested" ) ) muc.sendMessage( showsRequested() );
-      else if( j.getMessage().equals( "request" ) ) muc.sendMessage( requestShow( 123 ) );
       else if( commands.length == 2 ){
 	if( commands[0].equals( "approve" ) ){
 	  try{
 	    muc.sendMessage( approveShow( Integer.parseInt( commands[1] ) ) );
 	  }catch( Exception e ){}
 	}
+	else if( j.getMessage().equals( "request" ) ){
+	  try{
+	    muc.sendMessage( requestShow( Integer.parseInt( commands[1] ) ) );
+	  }catch( Exception e ){}	}
       }
     }catch( Exception e ){ 
         System.out.println("Could not send Muc message");
