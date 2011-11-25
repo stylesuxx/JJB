@@ -3,5 +3,7 @@
 Steps to get this Bot running:
 * clone git repo
 * add projects libs in lib dir to your classpath
+* If you want to run the Bot with a Database be sure to have sqlite installed and check if everything is working with the lib
+  java -jar sqlite4java.jar
 * compile: javac javabot.java
 * run: java javabot <params>
