@@ -22,7 +22,6 @@ public class JJB{
     String botPass = null;
     String botNick = null;
     String botRoom = null;
-    String botServer = null;
     String botAdmin = null;
 
     // This are the optional arguments, if not set these are the default values
@@ -36,7 +35,6 @@ public class JJB{
       opt.addOption( "h", false, "Print this Help" );
       opt.addOption( "jid", true, "Jid to use" );
       opt.addOption( "pass", true, "The password to use" );
-      opt.addOption( "server", true, "The server to join" );
       opt.addOption( "room", true, "The room to join" );
       opt.addOption( "nick", true, "The nick to use in the channel" );
       opt.addOption( "resource", true, "Resource" );
@@ -47,9 +45,9 @@ public class JJB{
       CommandLine cl = parser.parse( opt, args );
 
       // In case user wants help or some main arguments are missing print the Help
-      if( cl.hasOption( 'h' ) || !cl.hasOption( "admin" ) || !cl.hasOption( "jid" ) || !cl.hasOption( "pass" ) || !cl.hasOption( "server" ) || !cl.hasOption( "room" ) || !cl.hasOption( "nick" ) ) {
+      if( cl.hasOption( 'h' ) || !cl.hasOption( "admin" ) || !cl.hasOption( "jid" ) || !cl.hasOption( "pass" ) || !cl.hasOption( "room" ) || !cl.hasOption( "nick" ) ) {
 	HelpFormatter f = new HelpFormatter();
-        f.printHelp( "javabot -jid <user> -pass <Password> -server <Server> -room <Room> -nick <Nick> -admin <JID>", opt );
+        f.printHelp( "javabot -jid <user> -pass <Password> -room <Room> -nick <Nick> -admin <JID>", opt );
 	System.exit(0);
       }
 
@@ -57,7 +55,6 @@ public class JJB{
       else{
 	botJid = cl.getOptionValue( "jid" );
 	botPass = cl.getOptionValue( "pass" );
-	botServer = cl.getOptionValue( "server" );
 	botRoom = cl.getOptionValue( "room" );
 	botNick = cl.getOptionValue( "nick" );
 	botAdmin = cl.getOptionValue( "admin" );
