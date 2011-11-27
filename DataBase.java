@@ -14,33 +14,38 @@ import com.almworks.sqlite4java.SQLiteJob;
   * This File has mainly three parts - equivalent to the amount of tables we have
   */
 public class DataBase{
-  static private File dbFile;
-  static private SQLiteConnection db;
-  SQLiteQueue queue;
-  boolean log = true;
+  private static private File dbFile;
+  private static private SQLiteConnection db;
+  private SQLiteQueue queue;
+  private boolean log = true;
 
-  /** Constructor with own database
+  /** Constructor with existing database
+    * 
     * @param database Location of database to use
+    * @param admin User who is to add as admin to the database
     */
-  public DataBase(String database){
+  public DataBase( String admin, String database){
     dbFile = new File( database );
     queue = new SQLiteQueue( dbFile );
     queue.start();
+    createAdmin( admin );
   }
   
   /** Default Constructor
     * <ul>
     * <li>This Constructor (tries to create and) uses the file test.db as Database</li>
     * </ul>
+    * 
+    * @param admin User who is to add as admin to the database
     */
-  public DataBase(){
+  public DataBase( String admin ){
     dbFile = new File( "test.db" );
     queue = new SQLiteQueue( dbFile );
     queue.start();
-
+    createAdmin( admin );
   }
 
-  /** Conects to database or tries to create new one if given does not exist^
+  /** Conects to database or tries to create new one if given does not exist
     */
   public void connect(){
     db = new SQLiteConnection( dbFile );
@@ -48,15 +53,15 @@ public class DataBase{
       db.open(true);
     }catch( SQLiteException e ){
       System.out.println( "Could not connect to Database." );
-      System.exit(1);
+      System.exit(-1);
     }
 
-    // Create DB if not already existant
+    // Create DB if not already exists
     try{
       SQLiteStatement[] st = {
-	db.prepare( "create table user (Jid TEXT PRIMARY KEY, status TEXT, date DATE);"),
-	db.prepare( "create table tv (tvKey INTEGER PRIMARY KEY, showname TEXT, airtime TEXT, airday TEXT, timezone TEXT, status TEXT);"),
-	db.prepare( "create table stats (statID INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, value TEXT)" )
+	db.prepare( "create table user (Jid TEXT PRIMARY KEY, status TEXT, date TEXT);"),
+	db.prepare( "create table tv (tvKey INTEGER PRIMARY KEY, showname TEXT, airtime TEXT, airday TEXT, timezone TEXT, status TEXT, length INTEGER, nextEpisode INTEGER, nextSeason INTEGER, nextTitle TEXT, nextDate TEXT);"),
+	db.prepare( "create table stats (statID INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, value TEXT);" )
       };
       for(int i = 0; i < st.length; i++){
 	try{
@@ -65,8 +70,8 @@ public class DataBase{
 	  st[i].dispose();
 	}
       }
-      System.out.println( "Created new Database" );
-    }catch( Exception e ){ System.out.println("Using existing Database"); }
+      System.out.println( "Created new Database: " + dbFile.toString() );
+    }catch( Exception e ){ System.out.println("Using existing Database: " + dbFile.toString(); ) }
   }
 
   /** Disconnect from database
@@ -76,8 +81,11 @@ public class DataBase{
     queue.stop( true );
   }
 
+  //TODO: get next Episode Infos
   /** Returns TVEntity of one given show
-    * @param showID ID of show to return 
+    * 
+    * @param showID ID of show to return
+    *  
     * @return TVEntity 
     */
   public TVEntity getShow( int showID ){
@@ -97,7 +105,9 @@ public class DataBase{
     return toReturn;
   }
  
-  /** Get all shows from DB that have the status 'approved'
+  // The following three methods can be merged to one which just fills in a sstring instead of static
+  /** Get all shows from database with status 'approved'
+    * 
     * @return Arraylist<TVEntity> 
     */
   public ArrayList<TVEntity> getApproved(){
@@ -114,7 +124,7 @@ public class DataBase{
 	    st.dispose();
 	  }
 	}catch( Exception e ){
-	  System.out.println("Log: Select Error: Could not get approved shows" );
+	  System.out.println("DB Select Error: Could not get approved shows" );
 	  e.printStackTrace();
 	}
 	return toReturn;
@@ -122,7 +132,8 @@ public class DataBase{
     }).complete();
   }
 
-  /** Get all shows from DB that have the status 'never'
+  /** Get all shows from database with status 'never'
+    * 
     * @return Arraylist<TVEntity> 
     */
   public ArrayList<TVEntity> getNever(){
@@ -139,14 +150,15 @@ public class DataBase{
 	  } finally {
 	    st.dispose();
 	  }
-	}catch( Exception e ){ System.out.println("Log: Select Error: Could not get never shows" ); }
+	}catch( Exception e ){ System.out.println("DB Select Error: Could not get never shows" ); }
 
 	return toReturn;
       }
     }).complete();
   }
 
-  /** Get all shows from DB that have the status 'requested'
+  /** Get all shows from database with status 'requested'
+    * 
     * @return Arraylist<TVEntity> 
     */
   public ArrayList<TVEntity> getRequested(){
@@ -163,22 +175,57 @@ public class DataBase{
 	  } finally {
 	    st.dispose();
 	  }
-	}catch( Exception e ){ System.out.println("Log: Select Error: Could not get requested shows" ); }
+	}catch( Exception e ){ if( log ) System.out.println("DB Select Error: Could not get requested shows" ); }
 
 	return toReturn;
       }
     }).complete();
   }
 
+  /** Crate an admin user - this is used for the user provided when the bot is started
+    * 
+    * @param jid Jid of the admin user to create
+    * 
+    * @return boolean 
+    */ 
+  public boolean createAdmin( final String jid ){
+    return queue.execute( new SQLiteJob<Boolean>(){
+      protected Boolean job(SQLiteConnection connection){
+	SQLiteStatement st = null;
+
+	try{
+	  st = connection.prepare("INSERT into user ( Jid, status, date ) VALUES( ?, 'admin', 'date' );");
+	  st.bind(1, jid);
+	  st.step();
+	  st.dispose();
+
+	}catch( SQLiteException e ){
+	  if( log ) System.out.println( "DB Insert Error: Admin User already exists" );
+	  return false;
+	}
+
+	return true;
+      }
+    }).complete();
+  }
+
+  // TODO: update for next show
   /** Request a new show to be added to the database
     * <ul>
     * <li>Adds a show and its details to the database if found on tv Rage</li>
     * <li>Returns the name of the show if found on TV Rage</li>
     * </ul>
-    * @param showID ID of show to request
+    * 
+    * @param showID ID of show
+    * @param showName Name of the show
+    * @param airtime Airtime of the show
+    * @param airday Airday of the show
+    * @param timezone Timezone of the show
+    * @param length Length of the show
+    * 
     * @return String 
     */
-  public String requestShow( final int showID, final String showname, final String airtime, final String airday, final String timezone ){
+  public String requestShow( final int showID, final String showname, final String airtime, final String airday, final String timezone, final int length ){
     return queue.execute( new SQLiteJob<String>(){
       protected String job(SQLiteConnection connection){
 	SQLiteStatement st = null;
@@ -195,7 +242,7 @@ public class DataBase{
 	    st.step();
 	    st.dispose();
 	  }catch( SQLiteException e ){
-	    System.out.println( "Show is already in Database" );
+	    if( log ) System.out.println( "DB Insert Error: show already in database" );
 	    st = connection.prepare("SELECT showname FROM tv WHERE tvKey = ? ");
 	      st.bind(1, showID );
 	    st.step();
@@ -203,7 +250,7 @@ public class DataBase{
 	  }	           	
 
 	}catch( SQLiteException e ){
-	  System.out.println( "Error inserting entry!" );
+	  if( log ) System.out.println( "DB Insert Error: inserting requested show" );
 	  return showname;
 	}
 
@@ -212,8 +259,13 @@ public class DataBase{
     }).complete();
   }
 
+  // TODO: the following two methods can be merged to one
+
+  // TODO: no error if show not in DB
   /** Approves a show
+    * 
     * @param showID ID of the show to approve
+    * 
     * @return boolean True if show was in database
     */
   public boolean approveShow( final int showID ){
@@ -238,7 +290,9 @@ public class DataBase{
   }
 
   /** Set the show on the never List
+    * 
     * @param showID ID of show to set on the never List
+    * 
     * @return boolean
     */
   public boolean neverShow( final int showID ){
@@ -263,7 +317,9 @@ public class DataBase{
   }
 
   /** Deletes show from database
+    * 
     * @param showID ID of show to delete
+    * 
     * @return boolean 
     */
   public boolean deleteShow( final int showID ){ 
@@ -290,7 +346,9 @@ public class DataBase{
   // This part is for the Users
 
   /** Register a new User
+    * 
     * @param jid Jid to register
+    * 
     * @return boolean True if User could be added
     * TESTED
     */
@@ -317,7 +375,9 @@ public class DataBase{
   }
 
   /** Deletes User from database
+    * 
     * @param jid JID to remove from database
+    * 
     * @return boolean True if usere was removed from database
     * TESTED
     * - no exception if user is not in database
@@ -343,7 +403,9 @@ public class DataBase{
   }
 
   /** Approves a User which has already registered
+    * 
     * @param jid Jid of user to approve
+    * 
     * @return boolean
     * TESTED
     * - Does nt throw exception if user not in DB
@@ -370,7 +432,9 @@ public class DataBase{
   }
 
   /** Promote user to admin
+    * 
     * @param jid Jid of user to promote
+    * 
     * @return boolen
     * TESTED
     * - does not throw Exception if user to promote does not exist
@@ -397,8 +461,11 @@ public class DataBase{
   }
 
   /** Returns true if the JID is admin
+    * 
     * @param jid Jid to check
+    * 
     * @return boolean
+    * TESTED
     */
   public boolean isAdminUser( final String jid ){ 
     return queue.execute( new SQLiteJob<Boolean>(){
@@ -416,7 +483,7 @@ public class DataBase{
 	  }
 	}catch( SQLiteException e ){
 	  if( log ) System.out.println( "Log: Select Error: No such Jid found" );
-	  e.printStackTrace();
+	  //e.printStackTrace();
 	  return false;
 	}
 	return false;
@@ -425,7 +492,9 @@ public class DataBase{
   }
 
   /** Returns true if the JID is approved
+    * 
     * @param jid Jid to check
+    * 
     * @return boolean
     * TESTED
     */
@@ -439,13 +508,13 @@ public class DataBase{
 	  st = connection.prepare("select status FROM user WHERE Jid = ? ");
 	  st.bind( 1, jid );
 	  st.step();
-	  if( st.columnString(0).equals( "admin" ) | st.columnString(0).equals( "approved" ) ){
+	  if( st.columnString(0).equals( "approved" ) | st.columnString(0).equals( "admin" ) ){
 	    st.dispose();
 	    return true;
 	  }
 	}catch( SQLiteException e ){
 	  System.out.println( "Log: Select Error: No such Jid found" );
-	  e.printStackTrace();
+	  //e.printStackTrace();
 	  return false;
 	}
 	return false;
@@ -454,7 +523,9 @@ public class DataBase{
   }
 
   /** Returns true if the JID is registered      
+    * 
     * @param jid Jid to check
+    * 
     * @return boolean
     * TESTED
     */
@@ -468,17 +539,21 @@ public class DataBase{
 	  st = connection.prepare("select status FROM user WHERE Jid = ? ");
 	  st.bind( 1, jid );
 	  st.step();
-	  st.dispose();
+	  if( st.columnString(0).equals( "registered" ) ){
+	    st.dispose();
+	    return true;
+	  }
 	}catch( SQLiteException e ){
-	  if( log ) System.out.println( "Log: Select Error: No such Jid found" );
+	  System.out.println( "Log: Select Error: No such Jid found" );
+	  //e.printStackTrace();
 	  return false;
 	}
-	return true;
+	return false;
       }
     }).complete();
   }
   
-
+  // TODO: The next three methods can be merged to one
   // TESTED
   public ArrayList<String> getRegisteredUsers(){
     return queue.execute( new SQLiteJob<ArrayList<String>>(){
