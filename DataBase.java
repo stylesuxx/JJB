@@ -52,7 +52,7 @@ public class DataBase{
     try{
       db.open(true);
     }catch( SQLiteException e ){
-      System.out.println( "Could not connect to Database." );
+      System.out.println( "Error: Could not connect to Database." );
       System.exit(-1);
     }
 
@@ -105,7 +105,6 @@ public class DataBase{
     return toReturn;
   }
  
-  // The following three methods can be merged to one which just fills in a sstring instead of static
   /** Get all shows from database with the given status
     * 
     * @param status The status of the shows to be returned
@@ -130,86 +129,6 @@ public class DataBase{
 	  if( log ) System.out.println("DB Select Error: Could not get '" + status + "' shows" );
 	  e.printStackTrace();
 	}
-	return toReturn;
-      }
-    }).complete();
-
-  }
-
-  /** Get all shows from database with status 'approved'
-    * 
-    * @return Arraylist<TVEntity>
-    * DEPRECIATED
-    */
-  public ArrayList<TVEntity> getApproved(){
-    return queue.execute( new SQLiteJob<ArrayList<TVEntity>>(){
-      protected ArrayList<TVEntity> job(SQLiteConnection connection){
-	ArrayList<TVEntity> toReturn = new ArrayList<TVEntity>();
-	try{
-	  SQLiteStatement st = connection.prepare( "SELECT * from tv WHERE status = 'approved'" );
-	  try {
-	    while( st.step() ){
-	      toReturn.add( new TVEntity( st.columnInt(0), st.columnString(1), st.columnString(2), st.columnString(3), st.columnString(4), st.columnString(5) ) );
-	    }
-	  } finally {
-	    st.dispose();
-	  }
-	}catch( Exception e ){
-	  System.out.println("DB Select Error: Could not get approved shows" );
-	  e.printStackTrace();
-	}
-	return toReturn;
-      }
-    }).complete();
-  }
-
-  /** Get all shows from database with status 'never'
-    * 
-    * @return Arraylist<TVEntity> 
-    * @DEPRECIATED
-    */
-  public ArrayList<TVEntity> getNever(){
-    return queue.execute( new SQLiteJob<ArrayList<TVEntity>>(){
-      protected ArrayList<TVEntity> job(SQLiteConnection connection){
-	ArrayList<TVEntity> toReturn = new ArrayList<TVEntity>();
-
-	try{
-	  SQLiteStatement st = connection.prepare( "SELECT * from tv WHERE status = 'never'" );
-	  try {
-	    while( st.step() ){
-	      toReturn.add( new TVEntity( st.columnInt(0), st.columnString(1), st.columnString(2), st.columnString(3), st.columnString(4), st.columnString(5) ) );
-	    }
-	  } finally {
-	    st.dispose();
-	  }
-	}catch( Exception e ){ System.out.println("DB Select Error: Could not get never shows" ); }
-
-	return toReturn;
-      }
-    }).complete();
-  }
-
-  /** Get all shows from database with status 'requested'
-    * 
-    * @return Arraylist<TVEntity> 
-    * DEPRECIATED
-    */
-  public ArrayList<TVEntity> getRequested(){
-    return queue.execute( new SQLiteJob<ArrayList<TVEntity>>(){
-      protected ArrayList<TVEntity> job(SQLiteConnection connection){
-	ArrayList<TVEntity> toReturn = new ArrayList<TVEntity>();
-
-	try{
-	  SQLiteStatement st = connection.prepare( "SELECT * from tv WHERE status = 'requested'" );
-	  try {
-	    while( st.step() ){
-	      toReturn.add( new TVEntity( st.columnInt(0), st.columnString(1), st.columnString(2), st.columnString(3), st.columnString(4), st.columnString(5) ) );
-	    }
-	  } finally {
-	    st.dispose();
-	  }
-	}catch( Exception e ){ if( log ) System.out.println("DB Select Error: Could not get requested shows" ); }
-
 	return toReturn;
       }
     }).complete();
