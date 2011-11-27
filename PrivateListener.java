@@ -2,16 +2,16 @@ import org.jivesoftware.smack.packet.Message;
 import org.jivesoftware.smack.MessageListener;
 import org.jivesoftware.smack.Chat;
 
-/** This Class handles all private incomming messages
+/** This Class handles all incomming private messages
   */
 class PrivateListener implements MessageListener{
-  ProcessInput pc;
+  ProcessInput pi;
 
   /** Default Constructor
     * @param pc ProcessInput Queue to use
     */
   public PrivateListener( ProcessInput pc ){
-    this.pc = pc;
+    this.pi = pi;
   }
 
   /** Process incomming private messages
@@ -19,6 +19,7 @@ class PrivateListener implements MessageListener{
     * @param m Message to process
     */
   public void processMessage( Chat chat, Message m ){
-    pc.newPrivateMessage( m.getBody(), m.getFrom(), chat );
+    pi.newMessage( m.getBody(), new UserEntity( m.getFrom().split( "/" )[0], chat ), "private" );
   }
+
 }
