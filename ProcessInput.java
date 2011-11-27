@@ -29,7 +29,6 @@ public class ProcessInput extends Thread{
     this.admin=admin;
     dbase = new DataBase( admin );
     dbase.connect();
-
   } 
 
   /** Add a new Job to the Jobqueue
@@ -66,11 +65,12 @@ public class ProcessInput extends Thread{
   }
 
   /** Returns the approved shows to the MUC
+    * 
     * @return String 
     */
   private String showsList(){
     String toReturn = "All shows we watch:";
-    ArrayList<TVEntity> approved = dbase.getApproved();
+    ArrayList<TVEntity> approved = dbase.getShows( "approved" );
     if( approved != null )
       for( int i = 0; i < approved.size(); i++ )
 	toReturn += "\n" + approved.get( i ).getShowname();
@@ -81,11 +81,11 @@ public class ProcessInput extends Thread{
     * @return String
     */
   private String showsNever(){
-    String toReturn = "Shows we will never watch:\n";
-    ArrayList<TVEntity> approved = dbase.getNever();
+    String toReturn = "Shows we will never watch:";
+    ArrayList<TVEntity> approved = dbase.getShows( "never" );
     if( approved != null )
       for( int i = 0; i < approved.size(); i++ )
-	toReturn += approved.get( i ).getShowname() + "\n";
+	toReturn += "\n" + approved.get( i ).getShowname();
     return toReturn;
   }
 
@@ -94,7 +94,7 @@ public class ProcessInput extends Thread{
     */
   private String showsRequested(){
     String toReturn = "This shows are requested:\n";
-    ArrayList<TVEntity> approved = dbase.getRequested();
+    ArrayList<TVEntity> approved = dbase.getShows( "requested" );
     if( approved != null )
       for( int i = 0; i < approved.size(); i++ )
 	toReturn += approved.get( i ).getShowid() + ": " + approved.get( i ).getShowname() + " " + approved.get( i ).getAirtime() + " on " + approved.get( i ).getAirday() + "\n";
@@ -108,6 +108,7 @@ public class ProcessInput extends Thread{
   private String requestShow( int showID ){
     TVRageLookup tv = new TVRageLookup( showID );
     tv.lookup();
+    // If has next set additional Infos
     return dbase.requestShow( showID, tv.getShowname(), tv.getAirtime(), tv.getAirday(), tv.getTimezone(), tv.getRuntime() ) + " has been added to the request list.";
   }
 
@@ -117,7 +118,7 @@ public class ProcessInput extends Thread{
     */
   // does not check if show approved, should return a string,...
   private String approveShow( int showID ){
-    dbase.approveShow( showID );
+    dbase.setShowStatus( showID, "approved" );
     return null;
     //return "Show approved";
     //return "Show not in database";
@@ -125,7 +126,7 @@ public class ProcessInput extends Thread{
 
   private String getRegisteredUsers(){
     String toReturn = "Registered Users:";
-    ArrayList<String> tmp = dbase.getRegisteredUsers(); 
+    ArrayList<String> tmp = dbase.getUsers( "registered" ); 
     for(int i=0; i<tmp.size(); i++ ){
       toReturn += "\n" + tmp.get( i );
     }	
@@ -134,17 +135,16 @@ public class ProcessInput extends Thread{
 
   private String getApprovedUsers(){
     String toReturn = "Approved Users:";
-    ArrayList<String> tmp = dbase.getApprovedUsers(); 
+    ArrayList<String> tmp = dbase.getUsers( "approved" ); 
     for(int i=0; i<tmp.size(); i++ ){
       toReturn += "\n" + tmp.get( i );
     }	
     return toReturn;
-
   }
 
   private String getAdminUsers(){
     String toReturn = "Admin Users:";
-    ArrayList<String> tmp = dbase.getAdminUsers(); 
+    ArrayList<String> tmp = dbase.getUsers( "admin" ); 
     for(int i=0; i<tmp.size(); i++ ){
       toReturn += "\n" + tmp.get( i );
     }	
@@ -152,6 +152,7 @@ public class ProcessInput extends Thread{
   }
 
   /** Sends a message to the MUC
+    * 
     * @param message Message to send to the MUC
     */
   private void sendMucMessage( String message ){
@@ -160,8 +161,8 @@ public class ProcessInput extends Thread{
     } catch( XMPPException e ) { System.out.println( "Could not send message to MUC. (" + message + ")" ); }
   }
 
-
   /** Send a private Message
+    * 
     * @param message Message to send
     * @param chat Chat to use to send the message
     */
@@ -193,12 +194,12 @@ public class ProcessInput extends Thread{
 
   // does not get exception never getting in else
   private String promoteAdmin( String user ){
-    if( dbase.setAdmin( user ) ) return "You promoted " + user + " to Admin!";
+    if( dbase.setUserStatus( user, "admin" ) ) return "You promoted " + user + " to Admin!";
     else return "Could not promote " + user + "!";
   }
 
   private String approveUser( String user ){
-    if( dbase.approveUser( user ) ) return "You approved " + user + "!";
+    if( dbase.setUserStatus( user, "approved" ) ) return "You approved " + user + "!";
     else return "Could not promote " + user + "!";
   }
 
@@ -270,7 +271,7 @@ public class ProcessInput extends Thread{
 	      }
 
 	      if( command[0].equals( "approve" ) && dbase.isAdminUser( j.getUser().getJid() ) ){
-		approveShow( Integer.parseInt(command[1]) );
+		dbase.setShowStatus( Integer.parseInt(command[1]), "approved" );
 	      }
 
 	      if( command[0].equals( "users" ) && dbase.isAdminUser( j.getUser().getJid() ) ){
