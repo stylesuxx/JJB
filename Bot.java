@@ -8,22 +8,41 @@ import org.jivesoftware.smack.ChatManager;
 import org.jivesoftware.smack.ChatManagerListener;
 import org.jivesoftware.smack.Chat;
 
+/** <h1>Bot</h1>
+  * <p>Bot Log in an room join, the message Listeners are added here</p>
+  * 
+  * @author stylesuxx
+  * @version 0.1
+  */
 public class Bot{
-  XMPPConnection con;
-  MultiUserChat muc;
-  ProcessInput pc;
-  ChatManager chatmanager;
-  String user, nick, pass, server, res, auth, room;
-
-  public Bot(String user, String pass, String server, String res, String auth, String nick){
-    this.user = user;
+  private XMPPConnection con = null;
+  private MultiUserChat muc = null;
+  private ProcessInput pc = null;
+  private ChatManager chatmanager = null;
+  private String jid, user, nick, pass, server, res, auth, room, admin;
+  private int port;
+  
+  /** Default Construcotor
+    * 
+    * @param jid The Bot's JID
+    * @param pass The Bot's Password
+    * @param res The Bot's Resource
+    * @param auth The Login authenticatioin method
+    * @param admin The Jid of the Bot's admin
+    * @param port The port to connect to 
+    */
+  public Bot(String jid, String pass, String res, String auth, String admin, int port ){
+    this.user = jid.split( "@" )[0];
     this.pass = pass;
-    this.server = server;
+    this.server = jid.split( "@" )[1];
     this.res = res;
     this.auth = auth;
-    this.nick = nick;
+    this.admin = admin;
+    this.port = port;
   }
 
+  /** Login to the Jabber Server or die trying
+    */ 
   public void login(){
     try{
       ConnectionConfiguration config = new ConnectionConfiguration( server, 5222, server );
@@ -32,7 +51,7 @@ public class Bot{
       SASLAuthentication.supportSASLMechanism( auth, 0 );
       con.login( user, pass, res );
     }catch( XMPPException e ){ 
-      System.out.println( "Connection failed: " + e.getMessage() );
+      System.out.println( "Connection to Jabber Server failed: " + e.getMessage() );
       System.exit(-1);
      }
     chatmanager = con.getChatManager();
@@ -41,27 +60,33 @@ public class Bot{
 	chat.addMessageListener( new PrivateListener( pc ) );
       }
     });
-    System.out.println( "Connected to Jabber Server" );
+    System.out.println( "Logged in as: " + user + "@" + server );
   }
 
-  public void joinRoom( String room ){
-    muc = new MultiUserChat( con, room + "@conference." + server );
+  /** Join a room
+    *
+    * @param room Room to join
+    * @param nick Nick to use in room
+    */ 
+  public void joinRoom( String room, String nick ){
+    this.nick = nick;
+    muc = new MultiUserChat( con, room );
     DiscussionHistory hist = new DiscussionHistory();
     hist.setMaxChars(0);
     try{
       muc.join( nick, pass, hist, 1000 );
     }catch( XMPPException e ){
-      System.out.println( "Could not join the MUC: " + e.getMessage() );
+      System.out.println( "Could not join the room: " + e.getMessage() );
       System.exit(-1);
      }    
-    pc = new ProcessInput( muc );
-    //pc.start();
-    muc.addMessageListener( new MucListener( pc ,  room + "@conference." + server + "/" + nick ) );
-    System.out.println( "Joined room" );
+    pc = new ProcessInput( muc, admin );
+    muc.addMessageListener( new MucListener( pc ,  room + "/" + nick, muc ) );
+    System.out.println( "Joined room: " + room + " as " + nick );
   }
   
+  /** Disconnect from Server
+    */
   public void disconnect(){
     con.disconnect();
-    //dBase.disconnect();
   }
 }
