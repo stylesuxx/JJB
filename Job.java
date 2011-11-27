@@ -1,34 +1,18 @@
-import org.jivesoftware.smack.Chat;
-
-/** This class represents a Job
+/** This class represents a Job the Bot has to process
   */
 public class Job{
-  private String message, nick, resource;
-  private Chat chat = null;
+  private String message, resource;
+  private UserEntity user;
 
   /** Default MUC Constructor
     * @param message A Jobs message 
-    * @param nick Who sent the message
-    * @param resource Where is the message comming from
+    * @param nick Infos about the User who sent the Job
+    * @param resource Where the message is comming from ( muc | private )
     */
-  public Job( String message, String nick, String resource){
+  public Job( String message, UserEntity user, String resource){
     this.message = message;
-    this.nick = nick;
+    this.user = user;
     this.resource = resource;
-  }
-
-
-  /** Default private Constructor
-    * @param message A Jobs message 
-    * @param nick Who sent the message
-    * @param resource Where is the message comming from
-    * @param chat Chat Object
-    */
-  public Job( String message, String nick, String resource, Chat chat){
-    this.message = message;
-    this.nick = nick;
-    this.resource = resource;
-    this.chat = chat;
   }
 
   /** Return the Jobs message
@@ -36,18 +20,14 @@ public class Job{
     */
   public String getMessage(){ return message; }
 
-  /** Return the Jobs Nick
-    * @return String
+  /** Return the Jobs User
+    * @return UserEntity
     */
-  public String getNick(){ return nick; }
+  public UserEntity getUser(){ return user; }
 
   /** Return the Jobs Resource
-    * @return String
+    * @return String muc | private
     */
   public String getResource(){ return resource; }
 
-  /** Return the Jobs chat
-    * @return chat
-    */
-  public Chat getChat(){ return chat; }
 }
