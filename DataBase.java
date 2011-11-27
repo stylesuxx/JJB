@@ -14,8 +14,8 @@ import com.almworks.sqlite4java.SQLiteJob;
   * This File has mainly three parts - equivalent to the amount of tables we have
   */
 public class DataBase{
-  private static private File dbFile;
-  private static private SQLiteConnection db;
+  private File dbFile;
+  private SQLiteConnection db;
   private SQLiteQueue queue;
   private boolean log = true;
 
@@ -71,7 +71,7 @@ public class DataBase{
 	}
       }
       System.out.println( "Created new Database: " + dbFile.toString() );
-    }catch( Exception e ){ System.out.println("Using existing Database: " + dbFile.toString(); ) }
+    }catch( Exception e ){ System.out.println("Using existing Database: " + dbFile.toString() ); }
   }
 
   /** Disconnect from database
@@ -106,9 +106,40 @@ public class DataBase{
   }
  
   // The following three methods can be merged to one which just fills in a sstring instead of static
-  /** Get all shows from database with status 'approved'
+  /** Get all shows from database with the given status
+    * 
+    * @param status The status of the shows to be returned
     * 
     * @return Arraylist<TVEntity> 
+    */
+  public ArrayList<TVEntity> getShows( final String status ){
+    return queue.execute( new SQLiteJob<ArrayList<TVEntity>>(){
+      protected ArrayList<TVEntity> job(SQLiteConnection connection){
+	ArrayList<TVEntity> toReturn = new ArrayList<TVEntity>();
+	try{
+	  SQLiteStatement st = connection.prepare( "SELECT * from tv WHERE status = ?" );
+	  st.bind( 1, status);
+	  try {
+	    while( st.step() ){
+	      toReturn.add( new TVEntity( st.columnInt(0), st.columnString(1), st.columnString(2), st.columnString(3), st.columnString(4), st.columnString(5) ) );
+	    }
+	  } finally {
+	    st.dispose();
+	  }
+	}catch( Exception e ){
+	  if( log ) System.out.println("DB Select Error: Could not get '" + status + "' shows" );
+	  e.printStackTrace();
+	}
+	return toReturn;
+      }
+    }).complete();
+
+  }
+
+  /** Get all shows from database with status 'approved'
+    * 
+    * @return Arraylist<TVEntity>
+    * DEPRECIATED
     */
   public ArrayList<TVEntity> getApproved(){
     return queue.execute( new SQLiteJob<ArrayList<TVEntity>>(){
@@ -135,6 +166,7 @@ public class DataBase{
   /** Get all shows from database with status 'never'
     * 
     * @return Arraylist<TVEntity> 
+    * @DEPRECIATED
     */
   public ArrayList<TVEntity> getNever(){
     return queue.execute( new SQLiteJob<ArrayList<TVEntity>>(){
@@ -160,6 +192,7 @@ public class DataBase{
   /** Get all shows from database with status 'requested'
     * 
     * @return Arraylist<TVEntity> 
+    * DEPRECIATED
     */
   public ArrayList<TVEntity> getRequested(){
     return queue.execute( new SQLiteJob<ArrayList<TVEntity>>(){
@@ -259,55 +292,28 @@ public class DataBase{
     }).complete();
   }
 
-  // TODO: the following two methods can be merged to one
-
-  // TODO: no error if show not in DB
-  /** Approves a show
+  /** Change status of a show
     * 
     * @param showID ID of the show to approve
+    * @param status The status to set the show to
     * 
     * @return boolean True if show was in database
     */
-  public boolean approveShow( final int showID ){
+  // TODO: no error if show not in DB
+  public boolean setShowStatus( final int showID, final String status){
     return queue.execute( new SQLiteJob<Boolean>(){
       protected Boolean job(SQLiteConnection connection){
 	SQLiteStatement st = null;
 	boolean toReturn = false;
 
 	try{
-	  st = connection.prepare("UPDATE tv SET status='approved' WHERE tvKey = ? ");
-	  st.bind( 1, showID );
+	  st = connection.prepare("UPDATE tv SET status=? WHERE tvKey = ? ");
+	  st.bind( 2, showID );
+	  st.bind( 1, status );
 	  st.step();
 	  st.dispose();
 	}catch( SQLiteException e ){
-	  System.out.println( "Error updating entry!" );
-	  return false;
-	}
-	
-	return true;
-      }
-    }).complete();
-  }
-
-  /** Set the show on the never List
-    * 
-    * @param showID ID of show to set on the never List
-    * 
-    * @return boolean
-    */
-  public boolean neverShow( final int showID ){
-    return queue.execute( new SQLiteJob<Boolean>(){
-      protected Boolean job(SQLiteConnection connection){
-	SQLiteStatement st = null;
-	boolean toReturn = false;
-
-	try{
-	  st = db.prepare("UPDATE tv SET status='never' WHERE tvKey = ? ");
-	  st.bind( 1, showID );
-	  st.step();
-	  st.dispose();
-	}catch( SQLiteException e ){
-	  System.out.println( "Log: Update Error: No show with ID# " + showID );
+	  System.out.println( "DB Update Error: updating show status" );
 	  return false;
 	}
 	
@@ -402,27 +408,27 @@ public class DataBase{
     }).complete();  
   }
 
-  /** Approves a User which has already registered
-    * 
-    * @param jid Jid of user to approve
+  /** Set the Status of a user
+    *
+    * @param jid Jid of users who's status to change
+    * @param status Status to change to
     * 
     * @return boolean
-    * TESTED
-    * - Does nt throw exception if user not in DB
-    */
-  public boolean approveUser( final String jid ){
+    */ 
+  public boolean setUserStatus( final String jid, final String status){
     return queue.execute( new SQLiteJob<Boolean>(){
       protected Boolean job(SQLiteConnection connection){
 	SQLiteStatement st = null;
 	boolean toReturn = false;
 
 	try{
-	  st = connection.prepare("UPDATE user SET status='approved' WHERE Jid = ? ");
-	  st.bind( 1, jid );
+	  st = connection.prepare("UPDATE user SET status = ? WHERE Jid = ? ");
+	  st.bind( 2, jid );
+	  st.bind( 1, status );
 	  st.step();
 	  st.dispose();
 	}catch( SQLiteException e ){
-	  System.out.println( "Log: Error updating User entry!" );
+	  if( log ) System.out.println( "DB Update Error: updating user status" );
 	  return false;
 	}
 	
@@ -430,36 +436,7 @@ public class DataBase{
       }
     }).complete();
   }
-
-  /** Promote user to admin
-    * 
-    * @param jid Jid of user to promote
-    * 
-    * @return boolen
-    * TESTED
-    * - does not throw Exception if user to promote does not exist
-    */
-  public boolean setAdmin( final String jid ){
-    return queue.execute( new SQLiteJob<Boolean>(){
-      protected Boolean job(SQLiteConnection connection){
-	SQLiteStatement st = null;
-	boolean toReturn = false;
-
-	try{
-	  st = connection.prepare("UPDATE user SET status='admin' WHERE Jid = ? ");
-	  st.bind( 1, jid );
-	  st.step();
-	  st.dispose();
-	}catch( SQLiteException e ){
-	  System.out.println( "Log: Error updating User entry!" );
-	  return false;
-	}
-	
-	return true;
-      }
-    }).complete();
-  }
-
+  
   /** Returns true if the JID is admin
     * 
     * @param jid Jid to check
@@ -552,16 +529,21 @@ public class DataBase{
       }
     }).complete();
   }
-  
-  // TODO: The next three methods can be merged to one
-  // TESTED
-  public ArrayList<String> getRegisteredUsers(){
+
+  /** Get users with certain status
+    *
+    * @param status Status of users to lookup
+    * 
+    * @return ArrayList<String>
+    */
+  public ArrayList<String> getUsers( final String status ){
     return queue.execute( new SQLiteJob<ArrayList<String>>(){
       protected ArrayList<String> job(SQLiteConnection connection){
 	ArrayList<String> toReturn = new ArrayList<String>();
 
 	try{
-	  SQLiteStatement st = connection.prepare( "SELECT Jid from user WHERE status = 'registered'" );
+	  SQLiteStatement st = connection.prepare( "SELECT Jid from user WHERE status = ?" );
+	  st.bind( 1, status );
 	  try {
 	    while( st.step() ){
 	      toReturn.add( st.columnString(0) );
@@ -569,51 +551,9 @@ public class DataBase{
 	  } finally {
 	    st.dispose();
 	  }
-	}catch( Exception e ){ System.out.println("Log: Select Error: Could not get requested users" ); }
-
-	return toReturn;
-      }
-    }).complete();
-  }
-
-  // TESTED
-  public ArrayList<String> getApprovedUsers(){
-    return queue.execute( new SQLiteJob<ArrayList<String>>(){
-      protected ArrayList<String> job(SQLiteConnection connection){
-	ArrayList<String> toReturn = new ArrayList<String>();
-
-	try{
-	  SQLiteStatement st = connection.prepare( "SELECT Jid from user WHERE status = 'approved' OR status = 'admin'" );
-	  try {
-	    while( st.step() ){
-	      toReturn.add( st.columnString(0) );
-	    }
-	  } finally {
-	    st.dispose();
-	  }
-	}catch( Exception e ){ System.out.println("Log: Select Error: Could not get requested users" ); }
-
-	return toReturn;
-      }
-    }).complete();
-  }
-
-  //TESTED
-  public ArrayList<String> getAdminUsers(){
-    return queue.execute( new SQLiteJob<ArrayList<String>>(){
-      protected ArrayList<String> job(SQLiteConnection connection){
-	ArrayList<String> toReturn = new ArrayList<String>();
-
-	try{
-	  SQLiteStatement st = connection.prepare( "SELECT Jid from user WHERE status = 'admin'" );
-	  try {
-	    while( st.step() ){
-	      toReturn.add( st.columnString(0) );
-	    }
-	  } finally {
-	    st.dispose();
-	  }
-	}catch( Exception e ){ System.out.println("Log: Select Error: Could not get requested users" ); }
+	}catch( Exception e ){
+	  if( log ) System.out.println( "DB Select Error: Could not get users with status: " + status );
+	}
 
 	return toReturn;
       }
