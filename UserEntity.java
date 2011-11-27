@@ -1,19 +1,26 @@
 import org.jivesoftware.smack.Chat;
+import org.jivesoftware.smackx.muc.MultiUserChat;
+import org.jivesoftware.smack.MessageListener;
+import org.jivesoftware.smack.packet.Message;
 
-/** This class holds Jid and Chat for a User
+/** This class holds the clean JID of the User and a chat Object in case you want to talk to this user
   */
 public class UserEntity{
-  String jid = null;
-  Chat chat = null;
+  private String jid = null;
+  private Chat chat = null;
+  private MultiUserChat muc = null;
 
-  /** Default Constructor
+  /** Default is used when User is from Muc
+    * 
     * @param jid The users Jid
+    * @param muc Instance of the Nuc the Bot is in
     */
-  public UserEntity( String jid ){
+  public UserEntity( String jid, MultiUserChat muc ){
     this.jid = jid;
+    this.muc = muc;
   }
 
-  /** Constructor
+  /** This Constructor is used when User is in private Chat
     * @param jid The Users Jid
     * @param chat If from a private message we already have a Chat Object
     */
@@ -31,7 +38,8 @@ public class UserEntity{
     * @return Chat
     */
   public Chat getChat(){
-    if( chat == null ) return null; //Create new Chatobject
+    if( chat == null ) return muc.createPrivateChat( jid, new MessageListener(){ public void processMessage(Chat chat, Message message){} } );
     else return chat;
   }
+
 }
