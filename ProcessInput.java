@@ -1,56 +1,56 @@
 import org.jivesoftware.smackx.muc.MultiUserChat;
 import org.jivesoftware.smack.XMPPException;
 import org.jivesoftware.smack.Chat;
+import org.jivesoftware.smack.MessageListener;
+import org.jivesoftware.smack.packet.Message;
 import java.util.*;
 import java.io.*;
 import com.almworks.sqlite4java.SQLiteQueue;
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
 
 /** This Class processes all the Jabber Messages send to the Bot 
   * All processes are queued and processed in a thread
   */
 public class ProcessInput extends Thread{
-  private DataBase dbase = new DataBase();
+  private DataBase dbase;
   private boolean process = true;
   private ArrayList<Job> jobs = new ArrayList<Job>();
-  private MultiUserChat muc;
+  MultiUserChat muc;
   private boolean running = false;
+  String admin;
+  ArrayList<String> links = new ArrayList<String>();
 
   /** Default Constructor
     * @param muc The MUC we are in
     */
-  public ProcessInput( MultiUserChat muc ){
-    dbase.connect();
+  public ProcessInput( MultiUserChat muc, String admin ){
     this.muc = muc;
+    this.admin=admin;
+    dbase = new DataBase( admin );
+    dbase.connect();
+
   } 
 
-  /** Process a new MUC message
-    * @param message Message received from the MUC
-    * @param from Who sent the message in the MUC
-    */
-  public void newMucMessage( String message, String from ){
-    jobs.add( new Job( message, from, "MUC" ) );
+  /** Add a new Job to the Jobqueue
+    * @param message The Jobs message
+    * @param user Thes User who sent the Job
+    * @param resource Where the Job came from
+    */  
+  public void newMessage( String message, UserEntity user, String resource ){
+    System.out.println( user.getJid() + " wrote: " + message + " in: " + resource );
+    jobs.add( new Job( message, user, resource ) );
     if( !running ) run();
   }
 
-  /** Process a new private message
-    * @param message Message received from the MUC
-    * @param from Who sent the message in the MUC
-    * @param chat The chat to use to answer the message
-    */
-  public void newPrivateMessage( String message, String from, Chat chat ){
-    jobs.add( new Job( message, from, "PM", chat ) );
-    if( !running ) run();
-  }
-
-  /** This is our Message queue
+  /** This is our Jobqueue
     */
   @Override
   public void run(){
     running = true;
 
     while( !jobs.isEmpty() ){
-      if( jobs.get(0).getResource().equals( "PM" ) ) processPrivateMessage( jobs.get(0) );
-      else if( jobs.get(0).getResource().equals( "MUC" ) ) processMucMessage( jobs.get(0) );
+      processMessage( jobs.get(0) );
       jobs.remove( 0 );
     }
 
@@ -61,6 +61,7 @@ public class ProcessInput extends Thread{
     */
   public void close(){
     running = false;
+    stop();
     dbase.disconnect();
   }
 
@@ -68,11 +69,11 @@ public class ProcessInput extends Thread{
     * @return String 
     */
   private String showsList(){
-    String toReturn = "All shows we watch:\n";
+    String toReturn = "All shows we watch:";
     ArrayList<TVEntity> approved = dbase.getApproved();
     if( approved != null )
       for( int i = 0; i < approved.size(); i++ )
-	toReturn += approved.get( i ).getShowname() + "\n";
+	toReturn += "\n" + approved.get( i ).getShowname();
     return toReturn;
   }
 
@@ -96,7 +97,7 @@ public class ProcessInput extends Thread{
     ArrayList<TVEntity> approved = dbase.getRequested();
     if( approved != null )
       for( int i = 0; i < approved.size(); i++ )
-	toReturn += approved.get( i ).getShowname() + "\n";
+	toReturn += approved.get( i ).getShowid() + ": " + approved.get( i ).getShowname() + " " + approved.get( i ).getAirtime() + " on " + approved.get( i ).getAirday() + "\n";
     return toReturn;
   }
 
@@ -105,17 +106,49 @@ public class ProcessInput extends Thread{
     * @return String
     */
   private String requestShow( int showID ){
-    return dbase.requestShow( showID, "showname","airtime","airday","timezone" );
+    TVRageLookup tv = new TVRageLookup( showID );
+    tv.lookup();
+    return dbase.requestShow( showID, tv.getShowname(), tv.getAirtime(), tv.getAirday(), tv.getTimezone(), tv.getRuntime() ) + " has been added to the request list.";
   }
 
   /** Returns the name of the approved show and approves it in the database if it exists
     * @param showID ID of show to request
     * @return String
     */
+  // does not check if show approved, should return a string,...
   private String approveShow( int showID ){
-    if( dbase.approveShow( showID ) )
-      return "Show approved";
-    return "Show not in database";
+    dbase.approveShow( showID );
+    return null;
+    //return "Show approved";
+    //return "Show not in database";
+  }
+
+  private String getRegisteredUsers(){
+    String toReturn = "Registered Users:";
+    ArrayList<String> tmp = dbase.getRegisteredUsers(); 
+    for(int i=0; i<tmp.size(); i++ ){
+      toReturn += "\n" + tmp.get( i );
+    }	
+    return toReturn;
+  }
+
+  private String getApprovedUsers(){
+    String toReturn = "Approved Users:";
+    ArrayList<String> tmp = dbase.getApprovedUsers(); 
+    for(int i=0; i<tmp.size(); i++ ){
+      toReturn += "\n" + tmp.get( i );
+    }	
+    return toReturn;
+
+  }
+
+  private String getAdminUsers(){
+    String toReturn = "Admin Users:";
+    ArrayList<String> tmp = dbase.getAdminUsers(); 
+    for(int i=0; i<tmp.size(); i++ ){
+      toReturn += "\n" + tmp.get( i );
+    }	
+    return toReturn;
   }
 
   /** Sends a message to the MUC
@@ -132,7 +165,8 @@ public class ProcessInput extends Thread{
     * @param message Message to send
     * @param chat Chat to use to send the message
     */
-  private void sendPrivateMessage( String message, Chat chat ){
+  private void sendPrivateMessage( String message, UserEntity user ){
+    Chat chat = user.getChat();
     try{
       chat.sendMessage( message );
     }catch(XMPPException e){ System.out.println("Could not send private message."); }
@@ -143,37 +177,144 @@ public class ProcessInput extends Thread{
     */
   private void processPrivateMessage( Job job ){
     try{
-      job.getChat().sendMessage( "acc" );
+      job.getUser().getChat().sendMessage( "acc" );
     }catch( Exception e ){ System.out.println( "Could not send message" ); }
+  }
+
+  /** Register a new User to the database
+    * @param user User to register
+    * @return String
+    * TESTED
+    */
+  private String registerUser( UserEntity user ){
+    if( dbase.registerUser( user.getJid() ) ) return "You have successfully registered, staff will approve you soon.";
+    return "You already are registered.";
+  }
+
+  // does not get exception never getting in else
+  private String promoteAdmin( String user ){
+    if( dbase.setAdmin( user ) ) return "You promoted " + user + " to Admin!";
+    else return "Could not promote " + user + "!";
+  }
+
+  private String approveUser( String user ){
+    if( dbase.approveUser( user ) ) return "You approved " + user + "!";
+    else return "Could not promote " + user + "!";
+  }
+
+  private String deleteUser( String user ){
+    if( dbase.unregisterUser( user ) ) return "You removed " + user + "!";
+    else return "Could not remove " + user + "!";
+  }
+
+  private void checkLink( String message, UserEntity user ){
+    String regex = ".*(https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]";
+    Pattern pattern = Pattern.compile( regex );
+    Matcher matcher = pattern.matcher( message );
+    if( matcher.find() ) links.add( message + " ("+ user.getJid() +")" );
+  }
+
+  private String getLinks(){
+    String toReturn = "Links";
+    int max;
+    if( links.size() > 50 ) max = 50;
+    else max = links.size();
+    for( int i = (links.size()-1); i >= 0; i-- )
+      toReturn += "\n" + links.get(i);
+    return toReturn;
   }
 
   /** Process a MUC Job
     * @param job Job to process
     */
-  private int processMucMessage( Job job ){
+  private int processMessage( Job job ){
     final Job j = job;
-    String[] commands = j.getMessage().split( " " );
+    String[] command = j.getMessage().split( " " );
+
     try{
-      if( j.getMessage().equals( "ping" ) ) muc.sendMessage( "pong" );
-      else if( j.getMessage().equals( "shows" ) ) muc.sendMessage( showsList() );
-      else if( j.getMessage().equals( "shows never" ) ) muc.sendMessage( showsNever() );
-      else if( j.getMessage().equals( "shows requested" ) ) muc.sendMessage( showsRequested() );
-      else if( commands.length == 2 ){
-	if( commands[0].equals( "approve" ) ){
-	  try{
-	    muc.sendMessage( approveShow( Integer.parseInt( commands[1] ) ) );
-	  }catch( Exception e ){}
-	}
-	else if( j.getMessage().equals( "request" ) ){
-	  try{
-	    muc.sendMessage( requestShow( Integer.parseInt( commands[1] ) ) );
-	  }catch( Exception e ){}	}
-      }
-    }catch( Exception e ){ 
+    switch( command.length ){
+      case 1: {
+		if( command[0].equals( "ping" ) && j.getResource().equals( "muc" ) && dbase.isApprovedUser( j.getUser().getJid() ) ) muc.sendMessage( "pong" );
+		else if( command[0].equals( "help" ) ) sendPrivateMessage( help( j.getUser() ), j.getUser() );
+		else if( command[0].equals( "links" ) && dbase.isApprovedUser( j.getUser().getJid() ) ) sendPrivateMessage( getLinks(), j.getUser() );
+		else if( command[0].equals( "shows" ) && dbase.isApprovedUser( j.getUser().getJid() ) ) muc.sendMessage( showsList() );
+		else if( command[0].equals( "register" ) ) sendPrivateMessage( registerUser( j.getUser() ), j.getUser() );
+	      } break;
+      case 2: { 
+		if ( command[0].equals( "shows" ) ){
+		  switch( command[1] ){
+		    case "never": muc.sendMessage( showsNever() ); break;
+		    case "req": {
+				  if( dbase.isAdminUser( j.getUser().getJid() ) )
+				    sendPrivateMessage( showsRequested(), j.getUser() );
+				} break;
+		    default: break;
+		  }
+		}
+
+		if( command[0].equals( "approve" ) && dbase.isAdminUser( j.getUser().getJid() ) ){
+		  sendPrivateMessage( approveUser( command[1] ), j.getUser() );
+		}
+
+		if( command[0].equals( "admin" ) && dbase.isAdminUser( j.getUser().getJid() ) ){
+		  sendPrivateMessage( promoteAdmin( command[1] ), j.getUser() );
+		}
+	  
+		if( command[0].equals( "delete" ) && dbase.isAdminUser( j.getUser().getJid() ) ){
+		  sendPrivateMessage( deleteUser( command[1] ), j.getUser() );
+		}
+	      }
+
+	      if( command[0].equals( "request" ) && dbase.isApprovedUser( j.getUser().getJid() ) ){
+		muc.sendMessage( requestShow( Integer.parseInt(command[1]) ) );
+	      }
+
+	      if( command[0].equals( "approve" ) && dbase.isAdminUser( j.getUser().getJid() ) ){
+		approveShow( Integer.parseInt(command[1]) );
+	      }
+
+	      if( command[0].equals( "users" ) && dbase.isAdminUser( j.getUser().getJid() ) ){
+		switch( command[1] ){
+		  case "reg": sendPrivateMessage( getRegisteredUsers(), j.getUser() ); break;
+		  case "app": sendPrivateMessage( getApprovedUsers(), j.getUser() ); break;
+		  case "admin": sendPrivateMessage( getAdminUsers(), j.getUser() ); break;
+		  default: break;
+		}
+	      }
+
+      default: checkLink( j.getMessage(), j.getUser() ); break;
+    }
+  }catch( Exception e ){ 
         System.out.println("Could not send Muc message");
         e.printStackTrace();
     }
     return 1;
+  }
+
+  // Print different help message depending on user status
+  private String help( UserEntity user ){
+    String toReturn = "Help";
+    if( dbase.isAdminUser( user.getJid() ) ){
+      toReturn = "Admin Help";
+      toReturn += "\nshows req\t show requested shows" +
+		  "\nusers reg\t\t show registered Users waiting for approval" +
+		  "\nusers app\t show approved users" +
+		  "\nusers admin\t show admin users" +
+		  "\napprove Jid/ID\t approve a user or a show";
+      toReturn += "\n-------------------------------------------------------------";
+    }
+    if( dbase.isApprovedUser( user.getJid() ) || dbase.isRegisteredUser( user.getJid() ) ){
+      toReturn += "\nping \t Check if Bot is alive." +
+		  "\nshows \t Prints all the shows we are watching." +
+		  "\nrequest # Request a TV show with TV-Rage ID." +
+		  "\nlinks \t Print the last 50 posted links";
+    }
+    if( dbase.isRegisteredUser( user.getJid() ) ){
+      toReturn += "\n\nYou have to be approved for this commands to work.";
+    }
+    if( !dbase.isApprovedUser( user.getJid() ) && !dbase.isRegisteredUser( user.getJid() ) && !dbase.isAdminUser( user.getJid() ) ) 
+      toReturn += "If you want to be able to use the Bot type \"register\"";
+    return toReturn;
   }
 
   private Chat createChat( String name ){ return null; }
