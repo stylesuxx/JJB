@@ -18,6 +18,7 @@ public class DataBase{
   private SQLiteConnection db;
   private SQLiteQueue queue;
   private boolean log = true;
+  private String admin;
 
   /** Constructor with existing database
     * 
@@ -25,10 +26,10 @@ public class DataBase{
     * @param admin User who is to add as admin to the database
     */
   public DataBase( String admin, String database){
+    this.admin = admin;
     dbFile = new File( database );
     queue = new SQLiteQueue( dbFile );
     queue.start();
-    createAdmin( admin );
   }
   
   /** Default Constructor
@@ -39,16 +40,17 @@ public class DataBase{
     * @param admin User who is to add as admin to the database
     */
   public DataBase( String admin ){
+    this.admin = admin;
     dbFile = new File( "test.db" );
     queue = new SQLiteQueue( dbFile );
     queue.start();
-    createAdmin( admin );
   }
 
   /** Conects to database or tries to create new one if given does not exist
     */
   public void connect(){
     db = new SQLiteConnection( dbFile );
+
     try{
       db.open(true);
     }catch( SQLiteException e ){
@@ -60,7 +62,7 @@ public class DataBase{
     try{
       SQLiteStatement[] st = {
 	db.prepare( "create table user (Jid TEXT PRIMARY KEY, status TEXT, date TEXT);"),
-	db.prepare( "create table tv (tvKey INTEGER PRIMARY KEY, showname TEXT, airtime TEXT, airday TEXT, timezone TEXT, status TEXT, length INTEGER, nextEpisode INTEGER, nextSeason INTEGER, nextTitle TEXT, nextDate TEXT);"),
+	db.prepare( "create table tv (tvKey INTEGER PRIMARY KEY, showname TEXT, airtime TEXT, airday TEXT, timezone TEXT, status TEXT, runtime INTEGER, nextTitle TEXT, nextEpisode INTEGER, nextSeason INTEGER, nextDate TEXT);"),
 	db.prepare( "create table stats (statID INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, value TEXT);" )
       };
       for(int i = 0; i < st.length; i++){
@@ -72,6 +74,7 @@ public class DataBase{
       }
       System.out.println( "Created new Database: " + dbFile.toString() );
     }catch( Exception e ){ System.out.println("Using existing Database: " + dbFile.toString() ); }
+    createAdmin( admin );
   }
 
   /** Disconnect from database
@@ -81,30 +84,6 @@ public class DataBase{
     queue.stop( true );
   }
 
-  //TODO: get next Episode Infos
-  /** Returns TVEntity of one given show
-    * 
-    * @param showID ID of show to return
-    *  
-    * @return TVEntity 
-    */
-  public TVEntity getShow( int showID ){
-    TVEntity toReturn = null;
-
-    try{
-      SQLiteStatement st = db.prepare( "SELECT * from tv WHERE tvKey = ?" );
-      st.bind(1, showID);
-      try {
-	st.step();
-	toReturn = new TVEntity( st.columnInt(0), st.columnString(1), st.columnString(2), st.columnString(3), st.columnString(4), st.columnString(5) );
-      } finally {
-	st.dispose();
-      }
-    }catch( Exception e ){ System.out.println("Log: Select Error: Could not get show with ID# " + showID); }
-
-    return toReturn;
-  }
- 
   /** Get all shows from database with the given status
     * 
     * @param status The status of the shows to be returned
@@ -116,11 +95,12 @@ public class DataBase{
       protected ArrayList<TVEntity> job(SQLiteConnection connection){
 	ArrayList<TVEntity> toReturn = new ArrayList<TVEntity>();
 	try{
-	  SQLiteStatement st = connection.prepare( "SELECT * from tv WHERE status = ?" );
-	  st.bind( 1, status);
+	  SQLiteStatement st = connection.prepare( "SELECT * from tv WHERE status=?;" );
+	  st.bind( 1, status );
 	  try {
 	    while( st.step() ){
-	      toReturn.add( new TVEntity( st.columnInt(0), st.columnString(1), st.columnString(2), st.columnString(3), st.columnString(4), st.columnString(5) ) );
+	      if( !st.columnString(6).equals( "" ) ) toReturn.add( new TVEntity( st.columnInt(0), st.columnString(1), st.columnString(2), st.columnString(3), st.columnString(4), st.columnString(5), st.columnInt(6), st.columnString(7), st.columnInt(8), st.columnInt(9), st.columnString(10) ) );
+	      else toReturn.add( new TVEntity( st.columnInt(0), st.columnString(1), st.columnString(2), st.columnString(3), st.columnString(4), st.columnString(5), st.columnInt(6) ) );
 	    }
 	  } finally {
 	    st.dispose();
@@ -168,27 +148,23 @@ public class DataBase{
     * <li>Returns the name of the show if found on TV Rage</li>
     * </ul>
     * 
-    * @param showID ID of show
-    * @param showName Name of the show
-    * @param airtime Airtime of the show
-    * @param airday Airday of the show
-    * @param timezone Timezone of the show
-    * @param length Length of the show
+    * @param tv TVLookup Object
     * 
-    * @return String 
+    * @return String The shows title
     */
-  public String requestShow( final int showID, final String showname, final String airtime, final String airday, final String timezone, final int length ){
+  public String requestShow( final TVRageLookup tv ){
     return queue.execute( new SQLiteJob<String>(){
       protected String job(SQLiteConnection connection){
 	SQLiteStatement st = null;
 
 	try{
-	  st = connection.prepare("INSERT into tv ( tvKey, showname, airtime, airday, timezone, status ) VALUES( ?, ?, ?, ?, ?, 'requested' );");
-	  st.bind(1, showID);
-	  st.bind(2, showname);
-	  st.bind(3, airtime);
-	  st.bind(4, airday);
-	  st.bind(5, timezone);
+	  st = connection.prepare("INSERT into tv ( tvKey, showname, airtime, airday, timezone, status, runtime ) VALUES( ?, ?, ?, ?, ?, 'requested', ? );");
+	  st.bind(1, tv.getShowid() );
+	  st.bind(2, tv.getShowname() );
+	  st.bind(3, tv.getAirtime() );
+	  st.bind(4, tv.getAirday() );
+	  st.bind(5, tv.getTimezone() );
+	  st.bind(6, tv.getRuntime() );
 
 	  try{
 	    st.step();
@@ -196,19 +172,99 @@ public class DataBase{
 	  }catch( SQLiteException e ){
 	    if( log ) System.out.println( "DB Insert Error: show already in database" );
 	    st = connection.prepare("SELECT showname FROM tv WHERE tvKey = ? ");
-	      st.bind(1, showID );
+	      st.bind(1, tv.getShowid() );
 	    st.step();
 	    st.dispose();
 	  }	           	
 
 	}catch( SQLiteException e ){
 	  if( log ) System.out.println( "DB Insert Error: inserting requested show" );
-	  return showname;
+	  return tv.getShowname();
 	}
 
-	return showname;
+	return tv.getShowname();
       }
     }).complete();
+  }
+
+  /** Request a new show to be added to the database with additional infos
+    * <ul>
+    * <li>Adds a show and its details to the database if found on tv Rage</li>
+    * <li>Returns the name of the show if found on TV Rage</li>
+    * </ul>
+    * 
+    * @param tv TVLookup Object
+    * @param nee NextEpisodeEntity Object
+    * 
+    * @return String The shows title
+    */
+  public String requestShow( final TVRageLookup tv, final NextEpisodeEntity nee ){
+    return queue.execute( new SQLiteJob<String>(){
+      protected String job(SQLiteConnection connection){
+	SQLiteStatement st = null;
+	try{
+	  st = connection.prepare( "INSERT into tv ( tvKey, showname, airtime, airday, timezone, status, runtime, nextEpisode, nextSeason, nextTitle, nextDate ) VALUES( ?, ?, ?, ?, ?, 'requested', ?, ?, ?, ?, ? );" );
+	  st.bind( 1, tv.getShowid() );
+	  st.bind( 2, tv.getShowname() );
+	  st.bind( 3, tv.getAirtime() );
+	  st.bind( 4, tv.getAirday() );
+	  st.bind( 5, tv.getTimezone() );
+	  st.bind( 6, tv.getRuntime() );
+
+	  st.bind( 7, nee.getEpisode() );
+	  st.bind( 8, nee.getSeason() );
+	  st.bind( 9, nee.getEpisodeTitle() );
+	  st.bind( 10, nee.getStringDate() );
+
+	  try{
+	    st.step();
+	    st.dispose();
+	  }catch( SQLiteException e ){
+	    if( log ) System.out.println( "DB Insert Error: show already in database" );
+	    st = connection.prepare("SELECT showname FROM tv WHERE tvKey = ? ");
+	      st.bind(1, tv.getShowid() );
+	    st.step();
+	    st.dispose();
+	  }	           	
+
+	}catch( SQLiteException e ){
+	  if( log ) System.out.println( "DB Insert Error: inserting requested show with next episode" );
+	  e.printStackTrace();
+	  return tv.getShowname();
+	}
+
+	return tv.getShowname();
+      }
+    }).complete();
+  }
+
+  public boolean updateShow( final int showID, final NextEpisodeEntity nee ){
+    return queue.execute( new SQLiteJob<Boolean>(){
+      protected Boolean job(SQLiteConnection connection){
+	SQLiteStatement st = null;
+	try{
+	  if( nee != null ){
+	    st = connection.prepare( "UPDATE tv set (nextEpisode, nextSeason, nextTitle, nextDate) VALUES( ?, ?, ?, ? );" );
+	    st.bind( 1, nee.getEpisode() );
+	    st.bind( 2, nee.getSeason() );
+	    st.bind( 3, nee.getEpisodeTitle() );
+	    st.bind( 4, nee.getStringDate() );
+	  }
+	  else
+	    st = connection.prepare( "UPDATE tv set (nextEpisode, nextSeason, nextTitle, nextDate) VALUES( '', '', '', '' );" );
+
+	  st.step();
+	  st.dispose();
+	}catch( SQLiteException e ){
+	  if( log ) System.out.println( "DB Update Error: updating shows next episode" );
+	  e.printStackTrace();
+	  return false;
+	}
+
+	return true;
+      }
+    }).complete();
+
   }
 
   /** Change status of a show

@@ -10,23 +10,29 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 
-/** Lookup a Shows Details on TV Rage
-  * 
-  * @author stylesuxx 
-  * @version 0.1
-  *
-  */
-
+/** <h1>Lookup a Shows Details on TV Rage</h1>
+ * <p>Looks up a show on the TVRage Site. A valid show ID is needed, this can be found on the search site on the TV Rage Homepage</p>
+ * <p>Depending on how old the show is, it is possible that not all values are set, these are the defaul values if not set</p>
+ * <ul>
+ *  <li>String: null</li>
+ *  <li>int: -1</li>
+ *  <li>Object: null</li>
+ * </ul>
+ * 
+ * @author stylesuxx 
+ * @version 0.1
+ *
+ */
 public class TVRageLookup{
-  private String showname = "init";
-  private String showlink = "init";
-  private String origin_country = "init";
-  private String status = "init";
-  private String classification = "init";
-  private String network = "init";
-  private String airtime = "init";
-  private String airday = "init";
-  private String timezone = "init";
+  private String showname = null;
+  private String showlink = null;
+  private String origin_country = null;
+  private String status = null;
+  private String classification = null;
+  private String network = null;
+  private String airtime = null;
+  private String airday = null;
+  private String timezone = null;
   private int seasons = -1;
   private int started = -1;
   private int showid = -1;
@@ -52,25 +58,16 @@ public class TVRageLookup{
   private boolean Xairtime = false;
   private boolean Xairday = false;
   private boolean Xtimezone = false;
-  // boolean akas = false;
-  // boolean aka = false;
 
-  /** Default Constructor
-    *
+  /** <h2>Default Constructor<h2>
+    * <p>Connects to TV Rage site and sets all the values so the getters have something to return.</p>
+    * 
     * @param showid TV Rage ID of the show to lookup
-    *
     */
   public TVRageLookup( int showid ){
     this.showid = showid;
-  }
-
-  /** get the XML
-    *
-    *
-    */
-  public void lookup(){
-    //XMLReader reader = XMLReaderFactory.createXMLReader();
     SAXParserFactory factory = SAXParserFactory.newInstance();
+
     try{
     SAXParser saxParser = factory.newSAXParser();
     DefaultHandler handler = new DefaultHandler() {
@@ -103,7 +100,7 @@ public class TVRageLookup{
 	    Xclassification = false;
 	  } 
 	  if( Xtimezone ){
-	    timezone = new String( ch, start, length );
+	    timezone = new String( ch, start, length ).split( " " )[0];
 	    Xtimezone = false;
 	  } 
 	  if( Xairday ){
@@ -163,7 +160,6 @@ public class TVRageLookup{
 	  } 
       }
     };
-    //saxParser.parse("file.xml", handler);
     saxParser.parse( new InputSource(new URL("http://services.tvrage.com/feeds/showinfo.php?sid=" + showid).openStream()), handler);
    
    }catch( Exception e ){ 
@@ -198,76 +194,89 @@ public class TVRageLookup{
   } 
 
   
-  /** Returns Showname
+  /** Returns name of show
     * @return String
     */
   public String getShowname(){ return showname; }
+
   /** Returns link to show
     * @return String
     */
   public String getShowlink(){ return showlink; }
-  /** Returns origin Country of the show
+
+  /** Returns origin country of the show
     * @return String
     */
   public String getOrigin_country(){ return origin_country; }
+
   /** Returns status of the show
     * @return String
     */
   public String getStatus(){ return status; }
+
   /** Returns classification of the show
     * @return String
     */
   public String getClassification(){ return classification; }
-  /** Returns Network which first aired the show
+
+  /** Returns Network on which the show aired first
     * @return String
     */
   public String getNetwork(){ return network; }
-  /** Returns time on which the show aired originally
+
+  /** Returns time on which the show originally aired
     * @return String
     */
   public String getAirtime(){ return airtime; }
-  /** Returns the day on which the show aired origiinally
+
+  /** Returns the day on which the show originally aired
     * @return String
     */
   public String getAirday(){ return airday; }
-  /** Returns the timezone in which the show was aired originally
+
+  /** Returns the timezone in which the show was originally aired
     * @return String
     */
   public String getTimezone(){ return timezone; }
-  /** Returns runtime of show
+
+  /** Returns runtime of the show
     * @return int
     */
   public int getRuntime(){ return runtime; }
+
   /** Returns the year the show started
     * @return int
     */
   public int getStarted(){ return started; }
-  /** Returns the nr of seasons of the show
+
+  /** Returns the show's seasons
     * @return int
     */
   public int getSeasons(){ return seasons; }
-  /** Returns  show ID
+
+  /** Returns the shows ID
     * @return int
     */
   public int getShowid(){ return showid; }
-  /** Returns Date when the show originally started
+
+  /** Returns date when the show originally started
     * @return Calendar
     */
   public Calendar getStartdate(){ return startdate; }
+
   /** Returns Date when the show originally ended
     * @return Calendar
     */
   public Calendar getEnded(){ return ended; }
-  /** Returns if the ID matches to a actual show
+
+  /** Returns if the given ID matches to an actual show
     * @return boolean
     */
   public boolean isValidshow(){ return validshow; }
-  /** Returns the Genres as An Arraylist
+
+  /** Returns the show's Genres
     * @return ArrayList
     */  
   public ArrayList<String> getGenres(){ return genres; }
-  /** Returns the Genres as an Array
-    * @return String[]
-    */
-  public String[] getGenresArray(){ return Arrays.copyOf(genres.toArray(), genres.toArray().length, String[].class); }
+
 }

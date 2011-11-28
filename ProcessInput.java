@@ -64,16 +64,63 @@ public class ProcessInput extends Thread{
     dbase.disconnect();
   }
 
+  private void updateNext( int showID ){
+    NextEpisode ne = new NextEpisode( showID );
+    NextEpisodeEntity nee = ne.getNext();
+    dbase.updateShow( showID, nee );
+  }
+
   /** Returns the approved shows to the MUC
     * 
     * @return String 
     */
   private String showsList(){
-    String toReturn = "All shows we watch:";
-    ArrayList<TVEntity> approved = dbase.getShows( "approved" );
-    if( approved != null )
-      for( int i = 0; i < approved.size(); i++ )
-	toReturn += "\n" + approved.get( i ).getShowname();
+    HashMap<String,Date> map = new HashMap<String,Date>();
+    DateComparator bvc =  new DateComparator(map);
+    TreeMap<String,Date> sorted_map = new TreeMap(bvc);
+
+    Date today = new Date();
+
+System.out.println(today.toString());
+
+    String toReturn;
+
+      toReturn = "TV Time:";
+      ArrayList<TVEntity> approved = dbase.getShows( "approved" );
+      if( approved != null )
+	for( int i = 0; i < approved.size(); i++ ){
+	  if( approved.get( i ).hasNext() ){
+	    String title = approved.get( i ).getShowname() +" S" + approved.get( i ).getNextSeason() + "E" + approved.get( i ).getNextEpisode() + ": " + approved.get( i ).getNextTitle();
+	    Date next = approved.get( i ).getNextDate().getTime();
+	      map.put( title, next );
+	  }
+	}
+
+    sorted_map.putAll(map);
+
+    for (String key : sorted_map.keySet()) {
+      long sec = (sorted_map.get(key).getTime() - today.getTime()) / 1000;
+      Boolean ago = false;
+
+      if ( sec < 0 ){
+	sec *= -1;
+	ago = true;
+      }
+      long min = ( sec/60 ) % 60;
+      long hours = ( sec/3600 ) % 3600 % 24;
+      long days = ( sec/3600 ) / 24;
+
+      String time = "";
+      if( days > 0 ) time += days + 1 + "d ";
+      else{
+	if( hours > 0 ) time += hours + "h ";
+	time += min + "min ";
+      }
+      if( ago ) time += "ago";
+
+      toReturn += "\n" + key + " ( "+ time +" )";
+    }
+
     return toReturn;
   }
 
@@ -93,11 +140,11 @@ public class ProcessInput extends Thread{
     * @return String
     */
   private String showsRequested(){
-    String toReturn = "This shows are requested:\n";
+    String toReturn = "This shows are requested:";
     ArrayList<TVEntity> approved = dbase.getShows( "requested" );
     if( approved != null )
       for( int i = 0; i < approved.size(); i++ )
-	toReturn += approved.get( i ).getShowid() + ": " + approved.get( i ).getShowname() + " " + approved.get( i ).getAirtime() + " on " + approved.get( i ).getAirday() + "\n";
+	toReturn += "\n" + approved.get( i ).toString();
     return toReturn;
   }
 
@@ -107,9 +154,14 @@ public class ProcessInput extends Thread{
     */
   private String requestShow( int showID ){
     TVRageLookup tv = new TVRageLookup( showID );
-    tv.lookup();
-    // If has next set additional Infos
-    return dbase.requestShow( showID, tv.getShowname(), tv.getAirtime(), tv.getAirday(), tv.getTimezone(), tv.getRuntime() ) + " has been added to the request list.";
+    NextEpisode ne = new NextEpisode( showID );
+    NextEpisodeEntity nee = ne.getNext();
+
+    // If has next episode, set additional Infos
+    if( nee != null ){
+      return "'" + dbase.requestShow( tv, nee ) + "' has been added to the request list. (upcomming episode)";
+    }
+    return "'" + dbase.requestShow( tv ) + "' has been added to the request list.";
   }
 
   /** Returns the name of the approved show and approves it in the database if it exists

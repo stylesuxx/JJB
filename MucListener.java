@@ -16,7 +16,7 @@ class MucListener implements PacketListener{
     * @param ignore Nick to ignore in MUC, this is the Bot's Jid
     * @param muc The Muc the Bot is in
     */
-  public MucListener( ProcessInput pc, String ignore, MultiUserChat muc ){
+  public MucListener( ProcessInput pi, String ignore, MultiUserChat muc ){
     this.pi = pi;
     this.ignore = ignore;
     this.muc = muc;

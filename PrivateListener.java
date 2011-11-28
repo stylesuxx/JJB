@@ -10,7 +10,7 @@ class PrivateListener implements MessageListener{
   /** Default Constructor
     * @param pc ProcessInput Queue to use
     */
-  public PrivateListener( ProcessInput pc ){
+  public PrivateListener( ProcessInput pi ){
     this.pi = pi;
   }
 
