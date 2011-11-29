@@ -33,7 +33,7 @@ public class JJB{
     // This are the optional arguments, if not set via commandline these are the default values
     String botResource = "JavaJabberBot v0.1";
     String botAuth = "DIGEST-MD5";
-    int port = 5222;
+    int botPort = 5222;
 
     // Try to get the command Line parameters or die trying
     try {
@@ -71,7 +71,7 @@ public class JJB{
 	// set optional variables
 	if( cl.hasOption( "res" ) ) botResource = cl.getOptionValue( "res" );
 	if( cl.hasOption( "enc" ) ) botAuth = cl.getOptionValue( "enc" );
-	if( cl.hasOption( "port" ) ) port = Integer.parseInt( cl.getOptionValue( "port" ) );
+	if( cl.hasOption( "port" ) ) botPort = Integer.parseInt( cl.getOptionValue( "port" ) );
       }
     }catch( ParseException e ){
       System.out.println( "Seems like you missed to provide a value." ); 
@@ -81,7 +81,7 @@ public class JJB{
     /* If we have all arguments we need we can finaly create und new Bot Instance, login to the Server
      * and join the room.  
      */
-    Bot bot = new Bot( botJid, botPass, botResource, botAuth, botAdmin, port );
+    Bot bot = new Bot( botJid, botPass, botResource, botAuth, botAdmin, botPort );
     bot.login();
     bot.joinRoom( botRoom, botNick );
   }
