@@ -9,7 +9,7 @@ import org.jivesoftware.smack.ChatManagerListener;
 import org.jivesoftware.smack.Chat;
 
 /** <h1>Bot</h1>
-  * <p>Bot Log in an room join, the message Listeners are added here</p>
+  * <p>Logs the bot in, joins a room and sets the message listeners</p>
   * 
   * @author stylesuxx
   * @version 0.1
@@ -17,9 +17,9 @@ import org.jivesoftware.smack.Chat;
 public class Bot{
   private XMPPConnection con = null;
   private MultiUserChat muc = null;
-  private ProcessInput pc = null;
+  private ProcessInput pi = null;
   private ChatManager chatmanager = null;
-  private String jid, user, nick, pass, server, res, auth, room, admin;
+  private String user, pass, server, res, auth, admin;
   private int port;
   
   /** Default Construcotor
@@ -45,7 +45,7 @@ public class Bot{
     */ 
   public void login(){
     try{
-      ConnectionConfiguration config = new ConnectionConfiguration( server, 5222, server );
+      ConnectionConfiguration config = new ConnectionConfiguration( server, port, server );
       con = new XMPPConnection( config );
       con.connect();
       SASLAuthentication.supportSASLMechanism( auth, 0 );
@@ -57,19 +57,18 @@ public class Bot{
     chatmanager = con.getChatManager();
     con.getChatManager().addChatListener(new ChatManagerListener(){
       public void chatCreated(final Chat chat, final boolean createdLocally){
-	chat.addMessageListener( new PrivateListener( pc ) );
+	chat.addMessageListener( new PrivateListener( pi ) );
       }
     });
     System.out.println( "Logged in as: " + user + "@" + server );
   }
 
-  /** Join a room
+  /** Join a room or die trying
     *
     * @param room Room to join
     * @param nick Nick to use in room
     */ 
   public void joinRoom( String room, String nick ){
-    this.nick = nick;
     muc = new MultiUserChat( con, room );
     DiscussionHistory hist = new DiscussionHistory();
     hist.setMaxChars(0);
@@ -79,8 +78,8 @@ public class Bot{
       System.out.println( "Could not join the room: " + e.getMessage() );
       System.exit(-1);
      }    
-    pc = new ProcessInput( muc, admin );
-    muc.addMessageListener( new MucListener( pc ,  room + "/" + nick, muc ) );
+    pi = new ProcessInput( muc, admin );
+    muc.addMessageListener( new MucListener( pi ,  room + "/" + nick, muc ) );
     System.out.println( "Joined room: " + room + " as " + nick );
   }
   
@@ -89,4 +88,5 @@ public class Bot{
   public void disconnect(){
     con.disconnect();
   }
+
 }
