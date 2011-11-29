@@ -67,6 +67,8 @@ public class JJB{
 	botRoom = cl.getOptionValue( "room" );
 	botNick = cl.getOptionValue( "nick" );
 	botAdmin = cl.getOptionValue( "admin" );
+
+	// Check if botJid and botAdmin are valid Jids
 	
 	// set optional variables
 	if( cl.hasOption( "res" ) ) botResource = cl.getOptionValue( "res" );
