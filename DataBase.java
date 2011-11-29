@@ -1,5 +1,6 @@
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Date;
 import com.almworks.sqlite4java.SQLiteConnection;
 import com.almworks.sqlite4java.SQLiteException;
 import com.almworks.sqlite4java.SQLiteStatement;
@@ -287,7 +288,7 @@ public class DataBase{
 	  st.step();
 	  st.dispose();
 	}catch( SQLiteException e ){
-	  if( log ) System.out.println( "DB Update Error: updating shows(" + int + ") next episode" );
+	  if( log ) System.out.println( "DB Update Error: updating shows(" + showID + ") next episode" );
 	  e.printStackTrace();
 	  return false;
 	}
