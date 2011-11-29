@@ -4,6 +4,9 @@ import org.jivesoftware.smack.MessageListener;
 import org.jivesoftware.smack.packet.Message;
 
 /** This class holds the clean JID of the User and a chat Object in case you want to talk to this user
+  *
+  * @author stylesuxx
+  * @version 0.1 
   */
 public class UserEntity{
   private String jid;
