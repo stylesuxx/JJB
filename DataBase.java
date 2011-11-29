@@ -276,7 +276,7 @@ public class DataBase{
 
 	try{
 	  if( nee != null ){
-	    st = connection.prepare( "UPDATE tv set (nextEpisode, nextSeason, nextTitle, nextDate) VALUES( ?, ?, ?, ? );" );
+	    st = connection.prepare( "UPDATE tv set nextEpisode = ?, nextSeason = ?, nextTitle = ?, nextDate = ?" );
 	    st.bind( 1, nee.getEpisode() );
 	    st.bind( 2, nee.getSeason() );
 	    st.bind( 3, nee.getEpisodeTitle() );

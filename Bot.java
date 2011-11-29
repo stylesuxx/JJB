@@ -82,11 +82,5 @@ public class Bot{
     muc.addMessageListener( new MucListener( pi ,  room + "/" + nick, muc ) );
     System.out.println( "Joined room: " + room + " as " + nick );
   }
-  
-  /** Disconnect from Server
-    */
-  public void disconnect(){
-    con.disconnect();
-  }
 
 }

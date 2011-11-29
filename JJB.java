@@ -86,9 +86,6 @@ public class JJB{
     Bot bot = new Bot( botJid, botPass, botResource, botAuth, botAdmin, botPort );
     bot.login();
     bot.joinRoom( botRoom, botNick );
-
-    // Gracefully close the connection
-    // bot.disconnect();
   }
 
 }
