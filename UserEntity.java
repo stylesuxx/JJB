@@ -6,7 +6,7 @@ import org.jivesoftware.smack.packet.Message;
 /** This class holds the clean JID of the User and a chat Object in case you want to talk to this user
   */
 public class UserEntity{
-  private String jid = null;
+  private String jid;
   private Chat chat = null;
   private MultiUserChat muc = null;
 
@@ -21,6 +21,7 @@ public class UserEntity{
   }
 
   /** This Constructor is used when User is in private Chat
+    * 
     * @param jid The Users Jid
     * @param chat If from a private message we already have a Chat Object
     */
@@ -30,11 +31,13 @@ public class UserEntity{
   }
 
   /** Returns the Users Jid
-    * @return String
+    * 
+    * @return String The user's Jid
     */
   public String getJid(){ return jid; }
 
   /** Returns a Chat Object to reply to this user
+    *
     * @return Chat
     */
   public Chat getChat(){
