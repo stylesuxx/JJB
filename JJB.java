@@ -5,31 +5,32 @@ import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.ParseException;
 
 /** <h1>Java Jabber Bot</h1>
- * <p>This is a Java Jabber Bot based on the Smack and SQLite4java Library. This should work Crossplattform, although it was only tested on Linux.</p>
- * <p>Some features:</p>
- * <ul>
- * <li>User register and have to be aproved by staff before they can interact with the bot</li>
- * <li>List of Tv shows the occupants like to watch</li>
- * </ul>
- * 
- * @author stylesuxx
- * @version 0.1
- */
+  * <p>This is a Java Jabber Bot based on the Smack and SQLite4java Library. This should work Crossplattform, although it was only tested on Linux.</p>
+  * <p>Some features:</p>
+  * <ul>
+  *  <li>User register and have to be aproved by staff before they can interact with the bot</li>
+  *  <li>List Tv shows the occupants like to watch (global Watchlist)</li>
+  * </ul>
+  * 
+  * @author stylesuxx
+  * @version 0.1
+  */
 public class JJB{
 
   /**
    * Main Method for the JJB, parses the Command Line Parameters logs the Bot in and joins a room
+   * 
    * @param args Command Line Parameters
    */
   public static void main( String[] args ){
-    // Main variables must be set
+    // Main arguments must be set via commandline
     String botJid = null;
     String botPass = null;
     String botNick = null;
     String botRoom = null;
     String botAdmin = null;
 
-    // This are the optional arguments, if not set these are the default values
+    // This are the optional arguments, if not set via commandline these are the default values
     String botResource = "JavaJabberBot v0.1";
     String botAuth = "DIGEST-MD5";
     int port = 5222;
@@ -51,7 +52,7 @@ public class JJB{
       BasicParser parser = new BasicParser();
       CommandLine cl = parser.parse( opt, args );
 
-      // In case user wants help or some main arguments are missing print the Help
+      // In case user wants help or some main arguments are missing, print the Help
       if( cl.hasOption( 'h' ) || !cl.hasOption( "admin" ) || !cl.hasOption( "jid" ) || !cl.hasOption( "pass" ) || !cl.hasOption( "room" ) || !cl.hasOption( "nick" ) ) {
 	HelpFormatter f = new HelpFormatter();
         f.printHelp( "javabot -jid <user> -pass <Password> -room <Room> -nick <Nick> -admin <JID>", opt );
@@ -60,11 +61,14 @@ public class JJB{
 
       // Assign arguments to variables
       else{
+	// set main variables
 	botJid = cl.getOptionValue( "jid" );
 	botPass = cl.getOptionValue( "pass" );
 	botRoom = cl.getOptionValue( "room" );
 	botNick = cl.getOptionValue( "nick" );
 	botAdmin = cl.getOptionValue( "admin" );
+	
+	// set optional variables
 	if( cl.hasOption( "res" ) ) botResource = cl.getOptionValue( "res" );
 	if( cl.hasOption( "enc" ) ) botAuth = cl.getOptionValue( "enc" );
 	if( cl.hasOption( "port" ) ) port = Integer.parseInt( cl.getOptionValue( "port" ) );
@@ -74,7 +78,9 @@ public class JJB{
       System.exit(0);
      }
 
-    // This is only done when we have all Parameters we need
+    /* If we have all arguments we need we can finaly create und new Bot Instance, login to the Server
+     * and join the room.  
+     */
     Bot bot = new Bot( botJid, botPass, botResource, botAuth, botAdmin, port );
     bot.login();
     bot.joinRoom( botRoom, botNick );
