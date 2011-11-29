@@ -12,6 +12,9 @@ import com.almworks.sqlite4java.SQLiteJob;
   * If we return something we try to keep it an object
   * 
   * This File has mainly three parts - equivalent to the amount of tables we have
+  * 
+  * @author stylesuxx
+  * @version 0.1
   */
 public class DataBase{
   private File dbFile;
@@ -41,7 +44,7 @@ public class DataBase{
     */
   public DataBase( String admin ){
     this.admin = admin;
-    dbFile = new File( "test.db" );
+    dbFile = new File( "JJB.db" );
     queue = new SQLiteQueue( dbFile );
     queue.start();
   }
@@ -82,6 +85,33 @@ public class DataBase{
   public void disconnect(){
     db.dispose();
     queue.stop( true );
+  }
+
+  /** get all Show ID's from database
+    * 
+    * @return ArrayList<Integer>
+    */  
+  public ArrayList<Integer> getShowids(){
+    return queue.execute( new SQLiteJob<ArrayList<Integer>>(){
+      protected ArrayList<Integer> job(SQLiteConnection connection){
+	ArrayList<Integer> toReturn = new ArrayList<Integer>();
+	try{
+	  SQLiteStatement st = connection.prepare( "SELECT tvKey from tv" );
+
+	  try {
+	    while( st.step() ){
+	      toReturn.add( st.columnInt(0) );
+	    }
+	  } finally {
+	    st.dispose();
+	  }
+	}catch( Exception e ){
+	  if( log ) System.out.println("DB Select Error: Could not get ID's" );
+	  e.printStackTrace();
+	}
+	return toReturn;
+      }
+    }).complete();
   }
 
   /** Get all shows from database with the given status
@@ -132,7 +162,7 @@ public class DataBase{
 	  st.dispose();
 
 	}catch( SQLiteException e ){
-	  if( log ) System.out.println( "DB Insert Error: Admin User already exists" );
+	  if( log ) System.out.println( "DB Insert Error: Admin user already exists" );
 	  return false;
 	}
 
@@ -172,7 +202,7 @@ public class DataBase{
 	  }catch( SQLiteException e ){
 	    if( log ) System.out.println( "DB Insert Error: show already in database" );
 	    st = connection.prepare("SELECT showname FROM tv WHERE tvKey = ? ");
-	      st.bind(1, tv.getShowid() );
+	    st.bind(1, tv.getShowid() );
 	    st.step();
 	    st.dispose();
 	  }	           	
@@ -202,6 +232,7 @@ public class DataBase{
     return queue.execute( new SQLiteJob<String>(){
       protected String job(SQLiteConnection connection){
 	SQLiteStatement st = null;
+
 	try{
 	  st = connection.prepare( "INSERT into tv ( tvKey, showname, airtime, airday, timezone, status, runtime, nextEpisode, nextSeason, nextTitle, nextDate ) VALUES( ?, ?, ?, ?, ?, 'requested', ?, ?, ?, ?, ? );" );
 	  st.bind( 1, tv.getShowid() );
@@ -222,14 +253,13 @@ public class DataBase{
 	  }catch( SQLiteException e ){
 	    if( log ) System.out.println( "DB Insert Error: show already in database" );
 	    st = connection.prepare("SELECT showname FROM tv WHERE tvKey = ? ");
-	      st.bind(1, tv.getShowid() );
+	    st.bind(1, tv.getShowid() );
 	    st.step();
 	    st.dispose();
 	  }	           	
 
 	}catch( SQLiteException e ){
 	  if( log ) System.out.println( "DB Insert Error: inserting requested show with next episode" );
-	  e.printStackTrace();
 	  return tv.getShowname();
 	}
 
@@ -242,6 +272,7 @@ public class DataBase{
     return queue.execute( new SQLiteJob<Boolean>(){
       protected Boolean job(SQLiteConnection connection){
 	SQLiteStatement st = null;
+
 	try{
 	  if( nee != null ){
 	    st = connection.prepare( "UPDATE tv set (nextEpisode, nextSeason, nextTitle, nextDate) VALUES( ?, ?, ?, ? );" );
@@ -256,7 +287,7 @@ public class DataBase{
 	  st.step();
 	  st.dispose();
 	}catch( SQLiteException e ){
-	  if( log ) System.out.println( "DB Update Error: updating shows next episode" );
+	  if( log ) System.out.println( "DB Update Error: updating shows(" + int + ") next episode" );
 	  e.printStackTrace();
 	  return false;
 	}
@@ -288,7 +319,7 @@ public class DataBase{
 	  st.step();
 	  st.dispose();
 	}catch( SQLiteException e ){
-	  System.out.println( "DB Update Error: updating show status" );
+	  if( log ) System.out.println( "DB Update Error: updating show status" );
 	  return false;
 	}
 	
@@ -315,7 +346,7 @@ public class DataBase{
 	  st.step();
 	  st.dispose();
 	}catch( SQLiteException e ){
-	  System.out.println( "Log: Delete Error: No show with ID# " + showID );
+	  if( log ) System.out.println( "DB Delete Error: No show with ID# " + showID );
 	  return false;
 	}  
 
@@ -331,7 +362,6 @@ public class DataBase{
     * @param jid Jid to register
     * 
     * @return boolean True if User could be added
-    * TESTED
     */
   public boolean registerUser( final String jid ){
     return queue.execute( new SQLiteJob<Boolean>(){
@@ -343,11 +373,11 @@ public class DataBase{
 	  st = connection.prepare("INSERT into user ( Jid, status, date ) VALUES( ?, ?, ? );");
 	  st.bind(1, jid);
 	  st.bind(2, "registered");
-	  st.bind(3, "Here comes the date and timestamp");
+	  st.bind(3, new Date().toString() );
 	  st.step();
 	  st.dispose();
 	}catch( SQLiteException e ){
-	  if( log )System.out.println( "Log: Insert Error: User already in database" );
+	  if( log ) System.out.println( "DB Insert Error: user: " + jid +" already in database" );
 	  return false;
 	}
 	return true;
@@ -375,9 +405,10 @@ public class DataBase{
 	  st.step();
 	  st.dispose();
 	}catch( SQLiteException e ){
-	  if( log ) System.out.println( "Log: Delete Error: User not in database" );
+	  if( log ) System.out.println( "DB Delete Error: could not delete User" );
 	  return false;
 	}
+
 	return true;
       }
     }).complete();  
@@ -417,7 +448,6 @@ public class DataBase{
     * @param jid Jid to check
     * 
     * @return boolean
-    * TESTED
     */
   public boolean isAdminUser( final String jid ){ 
     return queue.execute( new SQLiteJob<Boolean>(){
@@ -434,10 +464,9 @@ public class DataBase{
 	    return true;
 	  }
 	}catch( SQLiteException e ){
-	  if( log ) System.out.println( "Log: Select Error: No such Jid found" );
-	  //e.printStackTrace();
-	  return false;
-	}
+	  if( log ) System.out.println( "DB Select Error: Jid not found: " + jid );
+	  return false;	}
+
 	return false;
       }
     }).complete();
@@ -448,7 +477,6 @@ public class DataBase{
     * @param jid Jid to check
     * 
     * @return boolean
-    * TESTED
     */
   public boolean isApprovedUser( final String jid ){
     return queue.execute( new SQLiteJob<Boolean>(){
@@ -460,15 +488,15 @@ public class DataBase{
 	  st = connection.prepare("select status FROM user WHERE Jid = ? ");
 	  st.bind( 1, jid );
 	  st.step();
-	  if( st.columnString(0).equals( "approved" ) | st.columnString(0).equals( "admin" ) ){
+	  if( st.columnString(0).equals( "approved" ) || st.columnString(0).equals( "admin" ) ){
 	    st.dispose();
 	    return true;
 	  }
 	}catch( SQLiteException e ){
-	  System.out.println( "Log: Select Error: No such Jid found" );
-	  //e.printStackTrace();
+	  if( log ) System.out.println( "DB Select Error: Jid not found: " + jid );
 	  return false;
 	}
+
 	return false;
       }
     }).complete();
@@ -479,7 +507,6 @@ public class DataBase{
     * @param jid Jid to check
     * 
     * @return boolean
-    * TESTED
     */
   public boolean isRegisteredUser( final String jid ){
     return queue.execute( new SQLiteJob<Boolean>(){
@@ -496,10 +523,10 @@ public class DataBase{
 	    return true;
 	  }
 	}catch( SQLiteException e ){
-	  System.out.println( "Log: Select Error: No such Jid found" );
-	  //e.printStackTrace();
+	  if( log ) System.out.println( "DB Select Error: Jid not found: " + jid );
 	  return false;
 	}
+
 	return false;
       }
     }).complete();
