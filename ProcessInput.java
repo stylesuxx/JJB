@@ -10,18 +10,22 @@ import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 
 /** This Class processes all the Jabber Messages send to the Bot 
-  * All processes are queued and processed in a thread
+  * All processes are queued and processed FiFo
+  * 
+  * @author stylesuxx
+  * @version 0.1
   */
 public class ProcessInput extends Thread{
+  private Date lastUpdate;
   private DataBase dbase;
-  private boolean process = true;
   private ArrayList<Job> jobs = new ArrayList<Job>();
-  MultiUserChat muc;
+  private MultiUserChat muc;
   private boolean running = false;
-  String admin;
-  ArrayList<String> links = new ArrayList<String>();
+  private String admin;
+  private ArrayList<String> links = new ArrayList<String>();
 
   /** Default Constructor
+    * 
     * @param muc The MUC we are in
     */
   public ProcessInput( MultiUserChat muc, String admin ){
@@ -29,9 +33,11 @@ public class ProcessInput extends Thread{
     this.admin=admin;
     dbase = new DataBase( admin );
     dbase.connect();
+    updateAll();
   } 
 
   /** Add a new Job to the Jobqueue
+    * 
     * @param message The Jobs message
     * @param user Thes User who sent the Job
     * @param resource Where the Job came from
@@ -43,6 +49,8 @@ public class ProcessInput extends Thread{
   }
 
   /** This is our Jobqueue
+    * 
+    * It is restarted as soon as it is stopped and a new Job is added
     */
   @Override
   public void run(){
@@ -54,20 +62,33 @@ public class ProcessInput extends Thread{
     }
 
     running = false;
+
+    //check if next Episodes should be updated - happens every 24  hrs
   }
 
   /** Terminate this class gracefully
     */
   public void close(){
-    running = false;
-    stop();
     dbase.disconnect();
   }
 
+  /** Update a shows next Episode
+    *
+    * @param showID ID of show to update
+    */
   private void updateNext( int showID ){
     NextEpisode ne = new NextEpisode( showID );
     NextEpisodeEntity nee = ne.getNext();
     dbase.updateShow( showID, nee );
+  }
+
+  /** Update all shows next episodes 
+    */
+  private void updateAll(){
+    ArrayList<Integer> toUpdate = dbase.getShowids();
+    for(int i = 0; i < toUpdate.size(); i++)
+      updateNext( toUpdate.get(i) );
+    lastUpdate = new Date();
   }
 
   /** Returns the approved shows to the MUC
@@ -77,24 +98,20 @@ public class ProcessInput extends Thread{
   private String showsList(){
     HashMap<String,Date> map = new HashMap<String,Date>();
     DateComparator bvc =  new DateComparator(map);
-    TreeMap<String,Date> sorted_map = new TreeMap(bvc);
-
+    TreeMap<String,Date> sorted_map = new TreeMap<String,Date>(bvc);
     Date today = new Date();
-
-System.out.println(today.toString());
-
     String toReturn;
 
-      toReturn = "TV Time:";
-      ArrayList<TVEntity> approved = dbase.getShows( "approved" );
-      if( approved != null )
-	for( int i = 0; i < approved.size(); i++ ){
-	  if( approved.get( i ).hasNext() ){
-	    String title = approved.get( i ).getShowname() +" S" + approved.get( i ).getNextSeason() + "E" + approved.get( i ).getNextEpisode() + ": " + approved.get( i ).getNextTitle();
-	    Date next = approved.get( i ).getNextDate().getTime();
-	      map.put( title, next );
-	  }
+    toReturn = "TV Time:";
+    ArrayList<TVEntity> approved = dbase.getShows( "approved" );
+    if( approved != null )
+      for( int i = 0; i < approved.size(); i++ ){
+	if( approved.get( i ).hasNext() ){
+	  String title = approved.get( i ).getShowname() +" S" + approved.get( i ).getNextSeason() + "E" + approved.get( i ).getNextEpisode() + ": " + approved.get( i ).getNextTitle();
+	  Date next = approved.get( i ).getNextDate().getTime();
+	  map.put( title, next );
 	}
+      }
 
     sorted_map.putAll(map);
 
@@ -117,14 +134,15 @@ System.out.println(today.toString());
 	time += min + "min ";
       }
       if( ago ) time += "ago";
-
-      toReturn += "\n" + key + " ( "+ time +" )";
+      if( ( ago && days < 3 ) || !ago )
+	toReturn += "\n" + key + " ( "+ time +" )";
     }
 
     return toReturn;
   }
 
   /** Returns the never shows
+    *
     * @return String
     */
   private String showsNever(){
@@ -137,6 +155,7 @@ System.out.println(today.toString());
   }
 
   /** Returns the requested shows
+    * 
     * @return String
     */
   private String showsRequested(){
@@ -149,7 +168,9 @@ System.out.println(today.toString());
   }
 
   /** Returns the name of the requested show and adds it to the database if it exists
+    * 
     * @param showID ID of show to request
+    * 
     * @return String
     */
   private String requestShow( int showID ){
@@ -165,7 +186,9 @@ System.out.println(today.toString());
   }
 
   /** Returns the name of the approved show and approves it in the database if it exists
+    * 
     * @param showID ID of show to request
+    * 
     * @return String
     */
   // does not check if show approved, should return a string,...
@@ -176,6 +199,10 @@ System.out.println(today.toString());
     //return "Show not in database";
   }
 
+  /** Returns all newly registered not approved users
+    * 
+    * @return String
+    */ 
   private String getRegisteredUsers(){
     String toReturn = "Registered Users:";
     ArrayList<String> tmp = dbase.getUsers( "registered" ); 
@@ -185,6 +212,10 @@ System.out.println(today.toString());
     return toReturn;
   }
 
+  /** Returns all approved users
+    * 
+    * @return String
+    */
   private String getApprovedUsers(){
     String toReturn = "Approved Users:";
     ArrayList<String> tmp = dbase.getUsers( "approved" ); 
@@ -194,6 +225,10 @@ System.out.println(today.toString());
     return toReturn;
   }
 
+  /** Returns all admin users
+    * 
+    * @return String
+    */
   private String getAdminUsers(){
     String toReturn = "Admin Users:";
     ArrayList<String> tmp = dbase.getUsers( "admin" ); 
@@ -226,6 +261,7 @@ System.out.println(today.toString());
   }
 
   /** Process a private Job
+    * 
     * @param job Job to process
     */
   private void processPrivateMessage( Job job ){
@@ -235,31 +271,54 @@ System.out.println(today.toString());
   }
 
   /** Register a new User to the database
+    * 
     * @param user User to register
+    * 
     * @return String
-    * TESTED
     */
   private String registerUser( UserEntity user ){
     if( dbase.registerUser( user.getJid() ) ) return "You have successfully registered, staff will approve you soon.";
     return "You already are registered.";
   }
 
-  // does not get exception never getting in else
+  /** Promote user to admin
+    *
+    * @param user User to promote to admin
+    * 
+    * @return Sring
+    */ 
   private String promoteAdmin( String user ){
     if( dbase.setUserStatus( user, "admin" ) ) return "You promoted " + user + " to Admin!";
     else return "Could not promote " + user + "!";
   }
 
+  /** Approve user
+    *
+    * @param user User to approve
+    * 
+    * @return Sring
+    */
   private String approveUser( String user ){
     if( dbase.setUserStatus( user, "approved" ) ) return "You approved " + user + "!";
     else return "Could not promote " + user + "!";
   }
 
+  /** Delete user
+    *
+    * @param user User to delete
+    * 
+    * @return Sring
+    */
   private String deleteUser( String user ){
     if( dbase.unregisterUser( user ) ) return "You removed " + user + "!";
     else return "Could not remove " + user + "!";
   }
 
+  /** Check if Message contains a link and save in ArrayList
+    *
+    * @param message Message the user sent
+    * @param user User who sent the message
+    */
   private void checkLink( String message, UserEntity user ){
     String regex = ".*(https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]";
     Pattern pattern = Pattern.compile( regex );
@@ -267,10 +326,16 @@ System.out.println(today.toString());
     if( matcher.find() ) links.add( message + " ("+ user.getJid() +")" );
   }
 
-  private String getLinks(){
+  /** get the last n Links
+    *
+    * @param n Amount of Links o get
+    * 
+    * @return String Returns the Links
+    */
+  private String getLinks( int n ){
     String toReturn = "Links";
     int max;
-    if( links.size() > 50 ) max = 50;
+    if( links.size() > n ) max = n;
     else max = links.size();
     for( int i = (links.size()-1); i >= 0; i-- )
       toReturn += "\n" + links.get(i);
@@ -289,7 +354,7 @@ System.out.println(today.toString());
       case 1: {
 		if( command[0].equals( "ping" ) && j.getResource().equals( "muc" ) && dbase.isApprovedUser( j.getUser().getJid() ) ) muc.sendMessage( "pong" );
 		else if( command[0].equals( "help" ) ) sendPrivateMessage( help( j.getUser() ), j.getUser() );
-		else if( command[0].equals( "links" ) && dbase.isApprovedUser( j.getUser().getJid() ) ) sendPrivateMessage( getLinks(), j.getUser() );
+		else if( command[0].equals( "links" ) && dbase.isApprovedUser( j.getUser().getJid() ) ) sendPrivateMessage( getLinks( 50 ), j.getUser() );
 		else if( command[0].equals( "shows" ) && dbase.isApprovedUser( j.getUser().getJid() ) ) muc.sendMessage( showsList() );
 		else if( command[0].equals( "register" ) ) sendPrivateMessage( registerUser( j.getUser() ), j.getUser() );
 	      } break;
@@ -333,10 +398,11 @@ System.out.println(today.toString());
 		  case "admin": sendPrivateMessage( getAdminUsers(), j.getUser() ); break;
 		  default: break;
 		}
-	      }
+	      }break;
 
-      default: checkLink( j.getMessage(), j.getUser() ); break;
+      default: break;
     }
+    if( dbase.isApprovedUser( j.getUser().getJid() ) ) checkLink( j.getMessage(), j.getUser() );
   }catch( Exception e ){ 
         System.out.println("Could not send Muc message");
         e.printStackTrace();
@@ -344,7 +410,15 @@ System.out.println(today.toString());
     return 1;
   }
 
-  // Print different help message depending on user status
+  /** Retruns the Helpfile
+    *
+    * @param user User to send the Helpfile to
+    * 
+    * @return String Helpfile
+    */
+  // Implement:
+  // * shows all
+  // * shows never
   private String help( UserEntity user ){
     String toReturn = "Help";
     if( dbase.isAdminUser( user.getJid() ) ){
@@ -358,7 +432,9 @@ System.out.println(today.toString());
     }
     if( dbase.isApprovedUser( user.getJid() ) || dbase.isRegisteredUser( user.getJid() ) ){
       toReturn += "\nping \t Check if Bot is alive." +
-		  "\nshows \t Prints all the shows we are watching." +
+		  "\nshows \t Prints all the shows we are watching with a next Episodes." +
+		  "\nshows all\t Prints all the shows we are watching." +
+		  "\nshows never\t Prints all the shows we will never watch." +
 		  "\nrequest # Request a TV show with TV-Rage ID." +
 		  "\nlinks \t Print the last 50 posted links";
     }
@@ -370,5 +446,4 @@ System.out.println(today.toString());
     return toReturn;
   }
 
-  private Chat createChat( String name ){ return null; }
 }
