@@ -192,6 +192,7 @@ public class ProcessInput extends Thread{
     * 
     * @return String
     */
+  // Check why invalid shows are being add to the db,....
   private String requestShow( String[] shows ){
     int showID;
     TVRageLookup tv = null;
