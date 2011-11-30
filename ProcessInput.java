@@ -395,54 +395,76 @@ public class ProcessInput extends Thread{
     try{
     switch( command.length ){
       case 1: {
-		if( command[0].equals( "ping" ) && j.getResource().equals( "muc" ) && dbase.isApprovedUser( j.getUser().getJid() ) ) muc.sendMessage( "pong" );
-		else if( command[0].equals( "help" ) ) sendPrivateMessage( help( j.getUser() ), j.getUser() );
-		else if( command[0].equals( "links" ) && dbase.isApprovedUser( j.getUser().getJid() ) ) sendPrivateMessage( getLinks( 50 ), j.getUser() );
-		else if( command[0].equals( "shows" ) && dbase.isApprovedUser( j.getUser().getJid() ) ) muc.sendMessage( showsList() );
-		else if( command[0].equals( "register" ) ) sendPrivateMessage( registerUser( j.getUser() ), j.getUser() );
-	      } break;
+	if( command[0].equals( "ping" ) && j.getResource().equals( "muc" ) && dbase.isApprovedUser( j.getUser().getJid() ) ) muc.sendMessage( "pong" );
+	else if( command[0].equals( "help" ) ) sendPrivateMessage( help( j.getUser() ), j.getUser() );
+	else if( command[0].equals( "links" ) && dbase.isApprovedUser( j.getUser().getJid() ) ) sendPrivateMessage( getLinks( 50 ), j.getUser() );
+	else if( command[0].equals( "shows" ) && dbase.isApprovedUser( j.getUser().getJid() ) ) muc.sendMessage( showsList() );
+	else if( command[0].equals( "register" ) ) sendPrivateMessage( registerUser( j.getUser() ), j.getUser() );
+      } break;
       case 2: { 
-		if ( command[0].equals( "shows" ) && dbase.isApprovedUser( j.getUser().getJid() ) ){
-		  switch( command[1] ){
-		    case "never": sendPrivateMessage( showsNever(), j.getUser() ); break;
-		    case "req": {
-				  if( dbase.isAdminUser( j.getUser().getJid() ) )
-				    sendPrivateMessage( showsRequested(), j.getUser() );
-				} break;
-		    case "all": sendPrivateMessage( showsAll(), j.getUser() ); break;
-		    default: break;
-		  }
-		}
+	switch( command[0] ){
+	  case "update": {
+	    switch( command[1] ){
+	      case "shows": if( dbase.isAdminUser( j.getUser().getJid() ) ) updateAll(); break;
+	      default: break;
+	    }
+	  }break:
 
-		if( command[0].equals( "approve" ) && dbase.isAdminUser( j.getUser().getJid() ) ){
-		  sendPrivateMessage( approveUser( command[1] ), j.getUser() );
-		}
-
-		if( command[0].equals( "admin" ) && dbase.isAdminUser( j.getUser().getJid() ) ){
-		  sendPrivateMessage( promoteAdmin( command[1] ), j.getUser() );
-		}
-	  
-		if( command[0].equals( "delete" ) && dbase.isAdminUser( j.getUser().getJid() ) ){
-		  sendPrivateMessage( deleteUser( command[1] ), j.getUser() );
-		}
-	      }
-	      if( command[0].equals( "approve" ) && dbase.isAdminUser( j.getUser().getJid() ) ){
+	  case "shows": {
+	    switch( command[1] ){
+	      case "never": sendPrivateMessage( showsNever(), j.getUser() ); break;
+	      case "req": {
+		if( dbase.isAdminUser( j.getUser().getJid() ) )
+		  sendPrivateMessage( showsRequested(), j.getUser() );
+	      } break;
+	      case "all": sendPrivateMessage( showsAll(), j.getUser() ); break;
+	      default: break;
+	    }
+	  }break;
+      
+	  case "approve":{
+	    if( dbase.isAdminUser( j.getUser().getJid() ) ){
+	      try{
+		int id = Integer.parseInt( command[2] );
 		dbase.setShowStatus( Integer.parseInt(command[1]), "approved" );
+	      }catch( Exception e ){ sendPrivateMessage( approveUser( command[1] ), j.getUser() ); }
+	    }
+	  }break;
+
+	  case "admin": {
+	    if( dbase.isAdminUser( j.getUser().getJid() ) )
+	      sendPrivateMessage( promoteAdmin( command[1] ), j.getUser() );
+	  }break;
+
+	  case "users": {
+	    if( dbase.isAdminUser( j.getUser().getJid() ) ){
+	      switch( command[1] ){
+		case "reg": sendPrivateMessage( getRegisteredUsers(), j.getUser() ); break;
+		case "app": sendPrivateMessage( getApprovedUsers(), j.getUser() ); break;
+		case "admin": sendPrivateMessage( getAdminUsers(), j.getUser() ); break;
+		default: break;
 	      }
+	    }
+	  }break;
+	  default: break;
+	}
+      }break;
 
-	      if( command[0].equals( "users" ) && dbase.isAdminUser( j.getUser().getJid() ) ){
-		switch( command[1] ){
-		  case "reg": sendPrivateMessage( getRegisteredUsers(), j.getUser() ); break;
-		  case "app": sendPrivateMessage( getApprovedUsers(), j.getUser() ); break;
-		  case "admin": sendPrivateMessage( getAdminUsers(), j.getUser() ); break;
-		  default: break;
-		}
-	      }break;
+		
+	  
+	//	if( command[0].equals( "delete" ) && dbase.isAdminUser( j.getUser().getJid() ) ){
+	//	  sendPrivateMessage( deleteUser( command[1] ), j.getUser() );
+	//	}
+	  //    }
+      
 
-      default: break;
-    }
-    if( command[0].equals( "request" ) && dbase.isApprovedUser( j.getUser().getJid() ) ){
-      muc.sendMessage( requestShow( command ) );
+
+
+      default:{
+	if( command[0].equals( "request" ) && dbase.isApprovedUser( j.getUser().getJid() ) ){
+	  muc.sendMessage( requestShow( command ) );
+	}
+      }break;
     }
     if( dbase.isApprovedUser( j.getUser().getJid() ) ) checkLink( j.getMessage(), j.getUser() );
   }catch( Exception e ){ 
@@ -477,7 +499,7 @@ public class ProcessInput extends Thread{
 		  "\nshows \t\t Prints all the shows we are watching with a next Episodes." +
 		  "\nshows all\t\t Prints all the shows we are watching." +
 		  "\nshows never\t Prints all the shows we will never watch." +
-		  "\nrequest #\t Request a TV show with TV-Rage ID." +
+		  "\nrequest #\t Request a TV show with TV-Rage ID, multiple ID's can be provided." +
  		  "\nmy add #\t Add a TV show to your personal list. -- TOO" +
 		  "\nmy list \t\t Print your personal watchlist. -- TODO" +
 		  "\nmy del #\t\t Delete a show from your personal list. -- TODO" +
