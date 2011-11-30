@@ -125,9 +125,14 @@ public class DataBase{
     return queue.execute( new SQLiteJob<ArrayList<TVEntity>>(){
       protected ArrayList<TVEntity> job(SQLiteConnection connection){
 	ArrayList<TVEntity> toReturn = new ArrayList<TVEntity>();
+	SQLiteStatement st = null;
+
 	try{
-	  SQLiteStatement st = connection.prepare( "SELECT * from tv WHERE status=?;" );
-	  st.bind( 1, status );
+	  if( status.equals( "all" ) ) st = connection.prepare( "SELECT * from tv" );
+	  else{
+	    st = connection.prepare( "SELECT * from tv WHERE status=?;" );
+	    st.bind( 1, status );
+	  }
 	  try {
 	    while( st.step() ){
 	      if( !st.columnString(6).equals( "" ) ) toReturn.add( new TVEntity( st.columnInt(0), st.columnString(1), st.columnString(2), st.columnString(3), st.columnString(4), st.columnString(5), st.columnInt(6), st.columnString(7), st.columnInt(8), st.columnInt(9), st.columnString(10) ) );
@@ -269,6 +274,13 @@ public class DataBase{
     }).complete();
   }
 
+  /** Update a schows next episode
+    *
+    * @param showID ID of show to update the next episode
+    * @param nee Infos about the upcomming episode or null 
+    * 
+    * @return boolean
+    */
   public boolean updateShow( final int showID, final NextEpisodeEntity nee ){
     return queue.execute( new SQLiteJob<Boolean>(){
       protected Boolean job(SQLiteConnection connection){
@@ -276,15 +288,17 @@ public class DataBase{
 
 	try{
 	  if( nee != null ){
-	    st = connection.prepare( "UPDATE tv set nextEpisode = ?, nextSeason = ?, nextTitle = ?, nextDate = ?" );
+	    st = connection.prepare( "UPDATE tv set nextEpisode = ?, nextSeason = ?, nextTitle = ?, nextDate = ? WHERE tvKey = ?" );
 	    st.bind( 1, nee.getEpisode() );
 	    st.bind( 2, nee.getSeason() );
 	    st.bind( 3, nee.getEpisodeTitle() );
 	    st.bind( 4, nee.getStringDate() );
+	    st.bind( 5, showID );
 	  }
-	  else
-	    st = connection.prepare( "UPDATE tv set (nextEpisode, nextSeason, nextTitle, nextDate) VALUES( '', '', '', '' );" );
-
+	  else{
+	    st = connection.prepare( "UPDATE tv set nextTitle = '', nextSeason = -1, nextEpisode = -1, nextDate = '' WHERE tvKey = ?;" );
+	    st.bind( 1, showID );
+	  }
 	  st.step();
 	  st.dispose();
 	}catch( SQLiteException e ){
