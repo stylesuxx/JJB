@@ -48,7 +48,7 @@ public class TVEntity{
     * @param status The status of the show in the database
     */
   public TVEntity( int showID, String showname, String airtime, String airday, String timezone, String status, int runtime, String nextTitle, int nextEpisode, int nextSeason, String nextD ){
-    next = true;
+    if( nextEpisode != -1 ) next = true;
     this.showID = showID;
     this.showname = showname;
     this.airtime = airtime;
@@ -61,11 +61,13 @@ public class TVEntity{
     this.runtime = runtime;
 
     // Set the date
-    String[] split = nextD.split( "\\?" );
-    nextDate = new GregorianCalendar( Integer.parseInt( split[0].split( "-" )[2] ), Integer.parseInt( split[0].split( "-" )[1] ) - 1, Integer.parseInt( split[0].split( "-" )[0] ), Integer.parseInt( split[1].split( ":" )[0] ), Integer.parseInt( split[1].split( ":" )[1] ) );
-    // Set the Timezone
-    TimeZone tz = TimeZone.getTimeZone( timezone );
-    nextDate.setTimeZone( tz );
+    try{
+      String[] split = nextD.split( "\\?" );
+      nextDate = new GregorianCalendar( Integer.parseInt( split[0].split( "-" )[2] ), Integer.parseInt( split[0].split( "-" )[1] ) - 1, Integer.parseInt( split[0].split( "-" )[0] ), Integer.parseInt( split[1].split( ":" )[0] ), Integer.parseInt( split[1].split( ":" )[1] ) );
+      // Set the Timezone
+      TimeZone tz = TimeZone.getTimeZone( timezone );
+      nextDate.setTimeZone( tz );
+    }catch( Exception e ){ }
   }
 
   /** Returns if the show has a next episode
@@ -138,7 +140,8 @@ public class TVEntity{
       toReturn += ", [next Title: " + nextTitle + "]";
       toReturn += ", [next Episode: " + nextEpisode + "]";
       toReturn += ", [next Season: " + nextSeason + "]";
-      toReturn += ",[next Date: " + nextDate.getTime().toString() + "]";
+      if( nextDate != null )
+	toReturn += ",[next Date: " + nextDate.getTime().toString() + "]";
     }
     return toReturn;
   }
