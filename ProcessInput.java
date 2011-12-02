@@ -17,12 +17,16 @@ import java.util.regex.Matcher;
   */
 public class ProcessInput extends Thread{
   private Date lastUpdate;
-  private DataBase dbase;
+  private DataBase dbase = null;
   private ArrayList<Job> jobs = new ArrayList<Job>();
   private MultiUserChat muc;
   private boolean running = false;
   private String admin;
   private ArrayList<String> links = new ArrayList<String>();
+  private UserQueries userQ;
+  private TvQueries tvQ;
+  private boolean stopped = false;
+  public SQLiteQueue queue;
 
   /** Default Constructor
     * 
@@ -33,9 +37,15 @@ public class ProcessInput extends Thread{
     this.admin=admin;
     dbase = new DataBase( admin );
     dbase.connect();
+    userQ = new UserQueries( new File( "JJB.db"), true );
+    tvQ = new TvQueries( new File( "JJB.db"), true );
     updateAll();
-  } 
+  }
 
+  private void quit(){
+    stopped = true;
+    queue.stop( true );
+  }
   /** Add a new Job to the Jobqueue
     * 
     * @param message The Jobs message
@@ -43,9 +53,9 @@ public class ProcessInput extends Thread{
     * @param resource Where the Job came from
     */  
   public void newMessage( String message, UserEntity user, String resource ){
-    //System.out.println( user.getJid() + " wrote: " + message + " in: " + resource );
+    System.out.println( user.getJid() + " wrote: " + message + " in: " + resource );
     jobs.add( new Job( message, user, resource ) );
-    if( !running ) run();
+    if( !running && !stopped ) run();
   }
 
   /** This is our Jobqueue
@@ -56,18 +66,12 @@ public class ProcessInput extends Thread{
   public void run(){
     running = true;
 
-    while( !jobs.isEmpty() ){
+    while( !jobs.isEmpty() && !stopped ){
       processMessage( jobs.get(0) );
       jobs.remove( 0 );
     }
 
     running = false;
-  }
-
-  /** Terminate this class gracefully
-    */
-  public void close(){
-    dbase.disconnect();
   }
 
   /** Update a shows next Episode
@@ -77,13 +81,13 @@ public class ProcessInput extends Thread{
   private void updateNext( int showID ){
     NextEpisode ne = new NextEpisode( showID );
     NextEpisodeEntity nee = ne.getNext();
-    dbase.updateShow( showID, nee );
+    tvQ.updateShow( showID, nee );
   }
 
   /** Update all shows next episodes 
     */
   private void updateAll(){
-    ArrayList<Integer> toUpdate = dbase.getShowids();
+    ArrayList<Integer> toUpdate = tvQ.getShowids();
     for(int i = 0; i < toUpdate.size(); i++)
       updateNext( toUpdate.get(i) );
     lastUpdate = new Date();
@@ -96,7 +100,7 @@ public class ProcessInput extends Thread{
     */
   private String showsList(){
     // Update the db all 24hrs, there should be a better place than here - we will see
-    if( new Date().getTime() - lastUpdate.getTime() > ( 1000 * 3600 * 24 ) ) updateAll();
+    //if( new Date().getTime() - lastUpdate.getTime() > ( 1000 * 3600 * 24 ) ) updateAll();
     HashMap<String,Date> map = new HashMap<String,Date>();
     DateComparator bvc =  new DateComparator(map);
     TreeMap<String,Date> sorted_map = new TreeMap<String,Date>(bvc);
@@ -104,7 +108,7 @@ public class ProcessInput extends Thread{
     String toReturn;
 
     toReturn = "TV Time:";
-    ArrayList<TVEntity> approved = dbase.getShows( "approved" );
+    ArrayList<TVEntity> approved = tvQ.getShows( "approved" );
     if( approved.size() > 0 ){
       for( int i = 0; i < approved.size(); i++ ){
 	if( approved.get( i ).hasNext() ){
@@ -149,7 +153,7 @@ public class ProcessInput extends Thread{
     */
   private String showsNever(){
     String toReturn = "Shows we will never watch:";
-    ArrayList<TVEntity> approved = dbase.getShows( "never" );
+    ArrayList<TVEntity> approved = tvQ.getShows( "never" );
     if( approved.size() > 0 ){
       for( int i = 0; i < approved.size(); i++ )
 	toReturn += "\n" + approved.get( i ).getShowname();
@@ -164,7 +168,7 @@ public class ProcessInput extends Thread{
     */
   private String showsRequested(){
     String toReturn = "This shows are requested:";
-    ArrayList<TVEntity> approved = dbase.getShows( "requested" );
+    ArrayList<TVEntity> approved = tvQ.getShows( "requested" );
     if( approved.size() > 0 ){
       for( int i = 0; i < approved.size(); i++ )
 	toReturn += "\n" + approved.get( i ).toString();
@@ -173,13 +177,17 @@ public class ProcessInput extends Thread{
     else return "Currently there are no requested shows.";
   }
 
+  private void deleteShow( int showID){
+    tvQ.deleteShow( showID );
+  }
+
   /** Returns all shows by name in the database
     * 
     * @return String
     */
   private String showsAll(){
     String toReturn = "All shows:";
-    ArrayList<TVEntity> approved = dbase.getShows( "all" );
+    ArrayList<TVEntity> approved = tvQ.getShows( "all" );
     if( approved != null )
       for( int i = 0; i < approved.size(); i++ )
 	toReturn += "\n" + approved.get( i ).toString();
@@ -207,8 +215,8 @@ public class ProcessInput extends Thread{
 	nee = ne.getNext();
       }catch( Exception e ){}
       // If has next episode, set additional Infos
-      if( nee != null ) toReturn += "\n'" + dbase.requestShow( tv, nee ) + "' has been added to the request list. (upcomming episode)";
-      else if( tv != null ) toReturn += "\n'" + dbase.requestShow( tv ) + "' has been added to the request list.";
+      if( nee != null ) toReturn += "\n'" + tvQ.requestShow( tv, nee ) + "' has been added to the request list. (upcomming episode)";
+      else if( tv != null ) toReturn += "\n'" + tvQ.requestShow( tv ) + "' has been added to the request list.";
     }
 
     return toReturn;
@@ -222,7 +230,7 @@ public class ProcessInput extends Thread{
     */
   // does not check if show approved, should return a string,...
   private String approveShow( int showID ){
-    dbase.setShowStatus( showID, "approved" );
+    tvQ.setShowStatus( showID, "approved" );
     //return "Show approved";
     //return "Show not in database";
     TVRageLookup tv = new TVRageLookup( showID );
@@ -231,9 +239,9 @@ public class ProcessInput extends Thread{
 
     // If has next episode, set additional Infos
     if( nee != null ){
-      return "'" + dbase.requestShow( tv, nee ) + "' has been added to the request list. (upcomming episode)";
+      return "'" + tvQ.requestShow( tv, nee ) + "' has been added to the request list. (upcomming episode)";
     }
-    return "'" + dbase.requestShow( tv ) + "' has been added to the request list.";
+    return "'" + tvQ.requestShow( tv ) + "' has been added to the request list.";
   }
 
   /** Returns all newly registered not approved users
@@ -242,7 +250,7 @@ public class ProcessInput extends Thread{
     */ 
   private String getRegisteredUsers(){
     String toReturn = "Registered Users:";
-    ArrayList<String> tmp = dbase.getUsers( "registered" ); 
+    ArrayList<String> tmp = userQ.getUsers( "registered" ); 
     for(int i=0; i<tmp.size(); i++ ){
       toReturn += "\n" + tmp.get( i );
     }	
@@ -255,7 +263,7 @@ public class ProcessInput extends Thread{
     */
   private String getApprovedUsers(){
     String toReturn = "Approved Users:";
-    ArrayList<String> tmp = dbase.getUsers( "approved" ); 
+    ArrayList<String> tmp = userQ.getUsers( "approved" ); 
     for(int i=0; i<tmp.size(); i++ ){
       toReturn += "\n" + tmp.get( i );
     }	
@@ -268,7 +276,7 @@ public class ProcessInput extends Thread{
     */
   private String getAdminUsers(){
     String toReturn = "Admin Users:";
-    ArrayList<String> tmp = dbase.getUsers( "admin" ); 
+    ArrayList<String> tmp = userQ.getUsers( "admin" ); 
     for(int i=0; i<tmp.size(); i++ ){
       toReturn += "\n" + tmp.get( i );
     }	
@@ -314,7 +322,7 @@ public class ProcessInput extends Thread{
     * @return String
     */
   private String registerUser( UserEntity user ){
-    if( dbase.registerUser( user.getJid() ) ) return "You have successfully registered, staff will approve you soon.";
+    if( userQ.registerUser( user.getJid() ) ) return "You have successfully registered, staff will approve you soon.";
     return "You already are registered.";
   }
 
@@ -325,7 +333,7 @@ public class ProcessInput extends Thread{
     * @return Sring
     */ 
   private String promoteAdmin( String user ){
-    if( dbase.setUserStatus( user, "admin" ) ) return "You promoted " + user + " to Admin!";
+    if( userQ.setUserStatus( user, "admin" ) ) return "You promoted " + user + " to Admin!";
     else return "Could not promote " + user + "!";
   }
 
@@ -336,7 +344,7 @@ public class ProcessInput extends Thread{
     * @return Sring
     */
   private String approveUser( String user ){
-    if( dbase.setUserStatus( user, "approved" ) ) return "You approved " + user + "!";
+    if( userQ.setUserStatus( user, "approved" ) ) return "You approved " + user + "!";
     else return "Could not promote " + user + "!";
   }
 
@@ -347,7 +355,7 @@ public class ProcessInput extends Thread{
     * @return Sring
     */
   private String deleteUser( String user ){
-    if( dbase.unregisterUser( user ) ) return "You removed " + user + "!";
+    if( userQ.unregisterUser( user ) ) return "You removed " + user + "!";
     else return "Could not remove " + user + "!";
   }
 
@@ -396,26 +404,27 @@ public class ProcessInput extends Thread{
     try{
     switch( command.length ){
       case 1: {
-	if( command[0].equals( "ping" ) && j.getResource().equals( "muc" ) && dbase.isApprovedUser( j.getUser().getJid() ) ) muc.sendMessage( "pong" );
+	if( command[0].equals( "ping" ) && j.getResource().equals( "muc" ) && userQ.isApprovedUser( j.getUser().getJid() ) ) muc.sendMessage( "pong" );
 	else if( command[0].equals( "help" ) ) sendPrivateMessage( help( j.getUser() ), j.getUser() );
-	else if( command[0].equals( "links" ) && dbase.isApprovedUser( j.getUser().getJid() ) ) sendPrivateMessage( getLinks( 50 ), j.getUser() );
-	else if( command[0].equals( "shows" ) && dbase.isApprovedUser( j.getUser().getJid() ) ) muc.sendMessage( showsList() );
+	else if( command[0].equals( "links" ) && userQ.isApprovedUser( j.getUser().getJid() ) ) sendPrivateMessage( getLinks( 50 ), j.getUser() );
+	else if( command[0].equals( "shows" ) && userQ.isApprovedUser( j.getUser().getJid() ) ) muc.sendMessage( showsList() );
+	else if( command[0].equals( "quit" ) ) quit();
 	else if( command[0].equals( "register" ) ) sendPrivateMessage( registerUser( j.getUser() ), j.getUser() );
       } break;
       case 2: { 
 	switch( command[0] ){
 	  case "update": {
 	    switch( command[1] ){
-	      case "shows": if( dbase.isAdminUser( j.getUser().getJid() ) ) updateAll(); break;
+	      case "shows": if( userQ.isAdminUser( j.getUser().getJid() ) ) updateAll(); break;
 	      default: break;
 	    }
-	  }break:
+	  }break;
 
 	  case "shows": {
 	    switch( command[1] ){
 	      case "never": sendPrivateMessage( showsNever(), j.getUser() ); break;
 	      case "req": {
-		if( dbase.isAdminUser( j.getUser().getJid() ) )
+		if( userQ.isAdminUser( j.getUser().getJid() ) )
 		  sendPrivateMessage( showsRequested(), j.getUser() );
 	      } break;
 	      case "all": sendPrivateMessage( showsAll(), j.getUser() ); break;
@@ -424,21 +433,21 @@ public class ProcessInput extends Thread{
 	  }break;
       
 	  case "approve":{
-	    if( dbase.isAdminUser( j.getUser().getJid() ) ){
+	    if( userQ.isAdminUser( j.getUser().getJid() ) ){
 	      try{
 		int id = Integer.parseInt( command[2] );
-		dbase.setShowStatus( Integer.parseInt(command[1]), "approved" );
+		tvQ.setShowStatus( Integer.parseInt(command[1]), "approved" );
 	      }catch( Exception e ){ sendPrivateMessage( approveUser( command[1] ), j.getUser() ); }
 	    }
 	  }break;
 
 	  case "admin": {
-	    if( dbase.isAdminUser( j.getUser().getJid() ) )
+	    if( userQ.isAdminUser( j.getUser().getJid() ) )
 	      sendPrivateMessage( promoteAdmin( command[1] ), j.getUser() );
 	  }break;
 
 	  case "users": {
-	    if( dbase.isAdminUser( j.getUser().getJid() ) ){
+	    if( userQ.isAdminUser( j.getUser().getJid() ) ){
 	      switch( command[1] ){
 		case "reg": sendPrivateMessage( getRegisteredUsers(), j.getUser() ); break;
 		case "app": sendPrivateMessage( getApprovedUsers(), j.getUser() ); break;
@@ -447,27 +456,26 @@ public class ProcessInput extends Thread{
 	      }
 	    }
 	  }break;
-	  default: break;
+
+	  case "delete": {
+	    //if( userQ.isAdminUser( j.getUser().getJid() ) ){
+		deleteShow( Integer.parseInt(command[1] ) );
+	      //}
+	  }break;
+	  default:{
+	    if( command[0].equals( "request" ) && userQ.isApprovedUser( j.getUser().getJid() ) ){
+	      muc.sendMessage( requestShow( command ) );
+	    }
+	  }break;
 	}
       }break;
 
-		
-	  
-	//	if( command[0].equals( "delete" ) && dbase.isAdminUser( j.getUser().getJid() ) ){
-	//	  sendPrivateMessage( deleteUser( command[1] ), j.getUser() );
-	//	}
-	  //    }
-      
 
 
 
-      default:{
-	if( command[0].equals( "request" ) && dbase.isApprovedUser( j.getUser().getJid() ) ){
-	  muc.sendMessage( requestShow( command ) );
-	}
-      }break;
+      default: break;
     }
-    if( dbase.isApprovedUser( j.getUser().getJid() ) ) checkLink( j.getMessage(), j.getUser() );
+    if( userQ.isApprovedUser( j.getUser().getJid() ) ) checkLink( j.getMessage(), j.getUser() );
   }catch( Exception e ){ 
         System.out.println("Could not process message.");
         e.printStackTrace();
@@ -485,7 +493,7 @@ public class ProcessInput extends Thread{
 
   private String help( UserEntity user ){
     String toReturn = "Help";
-    if( dbase.isAdminUser( user.getJid() ) ){
+    if( userQ.isAdminUser( user.getJid() ) ){
       toReturn = "Admin Help";
       toReturn += "\nshows req\t show requested shows" +
 		  "\nusers reg\t\t show registered Users waiting for approval" +
@@ -495,7 +503,7 @@ public class ProcessInput extends Thread{
 		  "\napprove Jid/ID\t approve a user or a show";
       toReturn += "\n-------------------------------------------------------------";
     }
-    if( dbase.isApprovedUser( user.getJid() ) || dbase.isRegisteredUser( user.getJid() ) ){
+    if( userQ.isApprovedUser( user.getJid() ) || userQ.isRegisteredUser( user.getJid() ) ){
       toReturn += "\nping \t\t Check if Bot is alive." +
 		  "\nshows \t\t Prints all the shows we are watching with a next Episodes." +
 		  "\nshows all\t\t Prints all the shows we are watching." +
@@ -506,10 +514,10 @@ public class ProcessInput extends Thread{
 		  "\nmy del #\t\t Delete a show from your personal list. -- TODO" +
 		  "\nlinks \t\t Print the last 50 posted links.";
     }
-    if( dbase.isRegisteredUser( user.getJid() ) ){
+    if( userQ.isRegisteredUser( user.getJid() ) ){
       toReturn += "\n\nYou have to be approved for this commands to work.";
     }
-    if( !dbase.isApprovedUser( user.getJid() ) && !dbase.isRegisteredUser( user.getJid() ) && !dbase.isAdminUser( user.getJid() ) ) 
+    if( !userQ.isApprovedUser( user.getJid() ) && !userQ.isRegisteredUser( user.getJid() ) && !userQ.isAdminUser( user.getJid() ) ) 
       toReturn += "If you want to be able to use the Bot type \"register\"";
     return toReturn;
   }

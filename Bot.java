@@ -14,13 +14,14 @@ import org.jivesoftware.smack.Chat;
   * @author stylesuxx
   * @version 0.1
   */
-public class Bot{
+public class Bot extends Thread{
   private XMPPConnection con = null;
   private MultiUserChat muc = null;
   private ProcessInput pi = null;
   private ChatManager chatmanager = null;
   private String user, pass, server, res, auth, admin;
   private int port;
+  private boolean isRunning;
   
   /** Default Construcotor
     * 
@@ -39,6 +40,7 @@ public class Bot{
     this.auth = auth;
     this.admin = admin;
     this.port = port;
+    isRunning = true;
   }
 
   /** Login to the Jabber Server or die trying
@@ -82,5 +84,7 @@ public class Bot{
     muc.addMessageListener( new MucListener( pi ,  room + "/" + nick, muc ) );
     System.out.println( "Joined room: " + room + " as " + nick );
   }
+
+  public boolean isRunning(){ return isRunning; }
 
 }
