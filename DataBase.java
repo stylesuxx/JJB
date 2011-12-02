@@ -33,30 +33,13 @@ public class DataBase{
   public DataBase( String admin, String database){
     this.admin = admin;
     dbFile = new File( database );
-    queue = new SQLiteQueue( dbFile );
-    queue.start();
   }
   
-  /** Default Constructor
-    * <ul>
-    * <li>This Constructor (tries to create and) uses the file test.db as Database</li>
-    * </ul>
-    * 
-    * @param admin User who is to add as admin to the database
-    */
-  public DataBase( String admin ){
-    this.admin = admin;
-    dbFile = new File( "JJB.db" );
-    //queue = new SQLiteQueue( dbFile );
-    //queue.start();
-
-  }
-
   /** Conects to database or tries to create new one if given does not exist
     */
   public void connect(){
     db = new SQLiteConnection( dbFile );
-
+    SQLiteStatement st = null;
     try{
       db.open(true);
     }catch( SQLiteException e ){
@@ -66,20 +49,20 @@ public class DataBase{
 
     // Create DB if not already exists
     try{
-      SQLiteStatement[] st = {
-	db.prepare( "create table user (Jid TEXT PRIMARY KEY, status TEXT, date TEXT);"),
-	db.prepare( "create table tv (tvKey INTEGER PRIMARY KEY, showname TEXT, airtime TEXT, airday TEXT, timezone TEXT, status TEXT, runtime INTEGER, nextTitle TEXT, nextEpisode INTEGER, nextSeason INTEGER, nextDate TEXT);"),
-	db.prepare( "create table stats (statID INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, value TEXT);" ),
-      };
-      for(int i = 0; i < st.length; i++){
-	try{
-	  st[i].step();
-	} finally{ 
-	  st[i].dispose();
-	}
-      }
+      st = db.prepare( "create table user (Jid TEXT PRIMARY KEY, status TEXT, date TEXT);");
+      st.step();
+      st.dispose();
+      st = db.prepare( "create table tv (tvKey INTEGER PRIMARY KEY, showname TEXT, airtime TEXT, airday TEXT, timezone TEXT, status TEXT, runtime INTEGER, nextTitle TEXT, nextEpisode INTEGER, nextSeason INTEGER, nextDate TEXT);");
+      st.step();
+      st.dispose();
+      st = db.prepare( "create table stats (statID INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, value TEXT);" );
+      st.step();
+      st.dispose();
+
       System.out.println( "Created new Database: " + dbFile.toString() );
     }catch( Exception e ){ System.out.println("Using existing Database: " + dbFile.toString() ); }
+
+    // Try to create admin if not already exists
     createAdmin( admin );
   }
 
@@ -90,8 +73,6 @@ public class DataBase{
     * @return boolean 
     */ 
   private boolean createAdmin( final String jid ){
-    //return queue.execute( new SQLiteJob<Boolean>(){
-      //protected Boolean job(SQLiteConnection connection){
 	SQLiteStatement st = null;
 
 	try{
@@ -102,18 +83,14 @@ public class DataBase{
 
 	}catch( SQLiteException e ){
 	  if( log ) System.out.println( "DB Insert Error: Admin user already exists" );
-	  e.printStackTrace();
 	  return false;
 	}
 
 	return true;
-      //}
-    //}).complete();
   }
   
   public void close(){
     db.dispose();
-    queue.stop( true );
   }
 
 }

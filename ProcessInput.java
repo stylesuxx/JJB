@@ -35,16 +35,24 @@ public class ProcessInput extends Thread{
   public ProcessInput( MultiUserChat muc, String admin ){
     this.muc = muc;
     this.admin=admin;
-    dbase = new DataBase( admin );
+    dbase = new DataBase( admin, "JJB.db" );
     dbase.connect();
-    userQ = new UserQueries( new File( "JJB.db"), true );
-    tvQ = new TvQueries( new File( "JJB.db"), true );
+    queue = new SQLiteQueue( new File("JJB.db") );
+    queue.start();
+    userQ = new UserQueries( queue, true );
+    tvQ = new TvQueries( queue, true );
+    //userQ = new UserQueries( new File( "JJB.db"), true );
+    //tvQ = new TvQueries( new File( "JJB.db"), true );
     updateAll();
   }
 
   private void quit(){
     stopped = true;
-    queue.stop( true );
+    //userQ.close();
+    //tvQ.close();
+    queue.stop(true);
+    dbase.close();
+    System.exit( 0 );
   }
   /** Add a new Job to the Jobqueue
     * 
@@ -55,7 +63,7 @@ public class ProcessInput extends Thread{
   public void newMessage( String message, UserEntity user, String resource ){
     System.out.println( user.getJid() + " wrote: " + message + " in: " + resource );
     jobs.add( new Job( message, user, resource ) );
-    if( !running && !stopped ) run();
+    if( !running ) run();
   }
 
   /** This is our Jobqueue
@@ -66,7 +74,7 @@ public class ProcessInput extends Thread{
   public void run(){
     running = true;
 
-    while( !jobs.isEmpty() && !stopped ){
+    while( !jobs.isEmpty() ){
       processMessage( jobs.get(0) );
       jobs.remove( 0 );
     }
