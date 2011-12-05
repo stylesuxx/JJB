@@ -1,5 +1,11 @@
-package JJB;
 
+
+import JJB.SQLite.DataBase;
+import JJB.Processes.InputProcessor;
+import JJB.Listeners.PrivateListener;
+import JJB.Listeners.MucListener;
+import com.almworks.sqlite4java.SQLiteQueue;
+import java.io.File;
 import org.jivesoftware.smack.ConnectionConfiguration;
 import org.jivesoftware.smack.XMPPConnection;
 import org.jivesoftware.smack.XMPPException;
@@ -21,6 +27,8 @@ public class Bot extends Thread{
   private String user, pass, server, res, auth, admin;
   private int port;
   private InputProcessor ip;
+  DataBase dbase;
+  SQLiteQueue queue;
   
   /** Default Construcotor
    * 
@@ -32,7 +40,7 @@ public class Bot extends Thread{
    * @param port The port to connect to 
    * @param ip The Input Processor
    */
-  public Bot( String jid, String pass, String res, String auth, String admin, int port, InputProcessor ip ){
+  public Bot( String jid, String pass, String res, String auth, String admin, int port, File db, boolean log ){
     this.user = jid.split( "@" )[0];
     this.pass = pass;
     this.server = jid.split( "@" )[1];
@@ -40,7 +48,14 @@ public class Bot extends Thread{
     this.auth = auth;
     this.admin = admin;
     this.port = port;
-    this.ip = ip;
+    // Connect to Database
+    dbase = new DataBase( admin, db, log );
+    dbase.connect();
+    // Create and Start Queu
+    queue = new SQLiteQueue( db );
+    queue.start();
+    // Start Input Processor
+    ip = new InputProcessor( queue, admin );
   }
 
   /** Login to the Jabber Server or die trying
@@ -84,6 +99,21 @@ public class Bot extends Thread{
     System.out.println( "Joined room: " + room + " as " + nick );
   }
 
-  public void disconnect(){ con.disconnect(); }
+  public void disconnect(){
+    // stop queue
+    queue.stop( true );
+    // disconnect DB
+    dbase.close();
+    // disconnect Bot
+    con.disconnect();
+  }
+  
+  public boolean isStopped(){
+    if(ip.isStopped()){
+     disconnect();
+     return true;
+    }
+    return false;
+  }
 
 }

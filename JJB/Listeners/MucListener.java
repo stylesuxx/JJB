@@ -1,17 +1,19 @@
-package JJB;
+package JJB.Listeners;
 
+import JJB.Processes.InputProcessor;
+import JJB.Processes.User;
 import org.jivesoftware.smack.packet.Message;
 import org.jivesoftware.smack.PacketListener;
 import org.jivesoftware.smack.packet.Packet;
 import org.jivesoftware.smackx.muc.MultiUserChat;
 
 /** This is the listener for the MUC
- * Handles all incomming messages from MUC and ads it to the Job Stack
+ * Handles all incoming messages from MUC and ads it to the Job Stack
  * 
  * @author stylesuxx
  * @version 0.1
  */
-class MucListener implements PacketListener{
+public class MucListener implements PacketListener{
   InputProcessor ip;
   String ignore = null;
   MultiUserChat muc = null;
@@ -28,7 +30,7 @@ class MucListener implements PacketListener{
     ip.setMuc( muc );
   }
 
-  /** Process incomming package from Muc
+  /** Process incoming package - in case it is a message, from Muc
    * 
    * @param p Packet to process
    */
@@ -36,7 +38,7 @@ class MucListener implements PacketListener{
     if( p instanceof Message ){
       Message msg = ( Message ) p;
       if( !msg.getFrom().equals( ignore ) ){
-	ip.newMessage( msg.getBody(), new UserEntity( muc.getOccupant( msg.getFrom() ).getJid().split( "/" )[0], muc ), "muc" );
+	ip.newMessage( msg.getBody(), new User( muc.getOccupant( msg.getFrom() ).getJid().split( "/" )[0], muc ), "muc" );
       }
     }
   }

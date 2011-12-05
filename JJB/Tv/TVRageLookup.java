@@ -1,9 +1,12 @@
-package JJB;
+package JJB.Tv;
 
+import java.io.IOException;
+import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
 import org.xml.sax.Attributes;
 import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
@@ -118,7 +121,7 @@ public class TVRageLookup{
 	  if( Xruntime ){
 	    try{
 	      runtime = Integer.parseInt( new String( ch, start, length ) );;
-	    }catch( Exception e ){ } //runtime stays default
+	    }catch( Exception e ){} //runtime stays default
 	    Xruntime = false;
 	  } 
 	  if( Xstatus ){
@@ -162,9 +165,8 @@ public class TVRageLookup{
     };
     saxParser.parse( new InputSource(new URL("http://services.tvrage.com/feeds/showinfo.php?sid=" + showid).openStream()), handler);
    
-   }catch( Exception e ){ 
+   }catch( ParserConfigurationException | SAXException | IOException e ){ 
       System.out.println("TV Rage Offline,..");
-      e.printStackTrace();
     }
    }
 
@@ -174,19 +176,20 @@ public class TVRageLookup{
     int month = -1;
     int day = -1;
     int year = -1;
-
-    if( dateA[0].equals("Jan") ) month = 1;
-    else if( dateA[0].equals("Feb") ) month = 2;
-    else if( dateA[0].equals("Mar") ) month = 3;
-    else if( dateA[0].equals("Apr") ) month = 4;
-    else if( dateA[0].equals("May") ) month = 5;
-    else if( dateA[0].equals("Jun") ) month = 6;
-    else if( dateA[0].equals("Jul") ) month = 7;
-    else if( dateA[0].equals("Aug") ) month = 8;
-    else if( dateA[0].equals("Sep") ) month = 9;
-    else if( dateA[0].equals("Oct") ) month = 10;
-    else if( dateA[0].equals("Nov") ) month = 11;
-    else if( dateA[0].equals("Dec") ) month = 12;
+    switch (dateA[0]) {
+      case "Jan": month = 1; break;
+      case "Feb": month = 2; break;
+      case "Mar": month = 3; break;
+      case "Apr": month = 4; break;
+      case "May": month = 5; break;
+      case "Jun": month = 6; break;
+      case "Jul": month = 7; break;
+      case "Aug": month = 8; break;
+      case "Sep": month = 9; break;
+      case "Oct": month = 10; break;
+      case "Nov": month = 11; break;
+      case "Dec": month = 12; break;
+    }
     day = Integer.parseInt( dateA[1] );
     year = Integer.parseInt( dateA[2] );
     tmp.set( year, month, day );

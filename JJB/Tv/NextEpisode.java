@@ -1,11 +1,11 @@
-package JJB;
+package JJB.Tv;
 
 import java.io.*;
 import java.net.*;
 import java.util.regex.*;
 import java.util.HashMap;
 
-/** This Class retrieves information about a shows upcomming episode
+/** This Class retrieves information about a shows upcoming episode
   *
   * @author stylesuxx
   * @version 0.1 
@@ -21,7 +21,7 @@ public class NextEpisode{
   private BufferedReader dis;
 
   /** Default Constructor
-    * @param showID The ID oh the show of which to check for upcomming episode
+    * @param showID The ID oh the show of which to check for upcoming episode
     */
   public NextEpisode( int showID ){
     this.showID = showID;

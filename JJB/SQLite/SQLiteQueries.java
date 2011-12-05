@@ -1,4 +1,4 @@
-package JJB;
+package JJB.SQLite;
 
 import com.almworks.sqlite4java.SQLiteQueue;
 

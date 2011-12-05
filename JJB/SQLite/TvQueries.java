@@ -1,5 +1,8 @@
-package JJB;
+package JJB.SQLite;
 
+import JJB.Tv.NextEpisodeEntity;
+import JJB.Tv.TVEntity;
+import JJB.Tv.TVRageLookup;
 import java.util.ArrayList;
 import com.almworks.sqlite4java.SQLiteConnection;
 import com.almworks.sqlite4java.SQLiteStatement;
@@ -74,6 +77,32 @@ public class TvQueries extends SQLiteQueries{
     }).complete();
   }
   
+    public ArrayList<TVEntity> getUserShows( final String jid ){
+    return queue.execute( new SQLiteJob<ArrayList<TVEntity>>(){
+      protected ArrayList<TVEntity> job(SQLiteConnection connection){
+	ArrayList<TVEntity> toReturn = new ArrayList<>();
+	SQLiteStatement st = null;
+
+	try{
+	    st = connection.prepare( "SELECT * from tv WHERE tvKey in (select show from userTV where Jid = ?)" );
+	    st.bind( 1, jid );
+	  try {
+	    while( st.step() ){
+	      if( !st.columnString(6).equals( "" ) ) toReturn.add( new TVEntity( st.columnInt(0), st.columnString(1), st.columnString(2), st.columnString(3), st.columnString(4), st.columnString(5), st.columnInt(6), st.columnString(7), st.columnInt(8), st.columnInt(9), st.columnString(10) ) );
+	      else toReturn.add( new TVEntity( st.columnInt(0), st.columnString(1), st.columnString(2), st.columnString(3), st.columnString(4), st.columnString(5), st.columnInt(6) ) );
+	    }
+	  } finally {
+	    st.dispose();
+	  }
+	}catch( Exception e ){
+	  if( log ) System.out.println("DB Select Error: Could not get Users '" + jid + "' shows" );
+	  e.printStackTrace();
+	}
+	return toReturn;
+      }
+    }).complete();
+  }
+  
     public TVEntity getShowInfo( final int showID ){
     return queue.execute( new SQLiteJob<TVEntity>(){
       protected TVEntity job(SQLiteConnection connection){
@@ -113,19 +142,20 @@ public class TvQueries extends SQLiteQueries{
     * 
     * @return String The shows title
     */
-  public String requestShow( final TVRageLookup tv ){
+  public String requestShow( final TVRageLookup tv, final String status ){
     return queue.execute( new SQLiteJob<String>(){
       protected String job(SQLiteConnection connection){
 	SQLiteStatement st = null;
 
 	try{
-	  st = connection.prepare("INSERT into tv ( tvKey, showname, airtime, airday, timezone, status, runtime ) VALUES( ?, ?, ?, ?, ?, 'requested', ? );");
+	  st = connection.prepare("INSERT into tv ( tvKey, showname, airtime, airday, timezone, status, runtime ) VALUES( ?, ?, ?, ?, ?, ?, ? );");
 	  st.bind(1, tv.getShowid() );
 	  st.bind(2, tv.getShowname() );
 	  st.bind(3, tv.getAirtime() );
 	  st.bind(4, tv.getAirday() );
 	  st.bind(5, tv.getTimezone() );
-	  st.bind(6, tv.getRuntime() );
+          st.bind( 6, status);
+	  st.bind(7, tv.getRuntime() );
 
 	  try{
 	    st.step();
@@ -159,24 +189,25 @@ public class TvQueries extends SQLiteQueries{
     * 
     * @return String The shows title
     */
-  public String requestShow( final TVRageLookup tv, final NextEpisodeEntity nee ){
+  public String requestShow( final TVRageLookup tv, final NextEpisodeEntity nee, final String status ){
     return queue.execute( new SQLiteJob<String>(){
       protected String job(SQLiteConnection connection){
 	SQLiteStatement st = null;
 
 	try{
-	  st = connection.prepare( "INSERT into tv ( tvKey, showname, airtime, airday, timezone, status, runtime, nextEpisode, nextSeason, nextTitle, nextDate ) VALUES( ?, ?, ?, ?, ?, 'requested', ?, ?, ?, ?, ? );" );
+	  st = connection.prepare( "INSERT into tv ( tvKey, showname, airtime, airday, timezone, status, runtime, nextEpisode, nextSeason, nextTitle, nextDate ) VALUES( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? );" );
 	  st.bind( 1, tv.getShowid() );
 	  st.bind( 2, tv.getShowname() );
 	  st.bind( 3, tv.getAirtime() );
 	  st.bind( 4, tv.getAirday() );
 	  st.bind( 5, tv.getTimezone() );
-	  st.bind( 6, tv.getRuntime() );
+          st.bind( 6, status );
+	  st.bind( 7, tv.getRuntime() );
 
-	  st.bind( 7, nee.getEpisode() );
-	  st.bind( 8, nee.getSeason() );
-	  st.bind( 9, nee.getEpisodeTitle() );
-	  st.bind( 10, nee.getStringDate() );
+	  st.bind( 8, nee.getEpisode() );
+	  st.bind( 9, nee.getSeason() );
+	  st.bind( 10, nee.getEpisodeTitle() );
+	  st.bind( 11, nee.getStringDate() );
 
 	  try{
 	    st.step();
@@ -286,6 +317,32 @@ public class TvQueries extends SQLiteQueries{
 	try{
 	  st = connection.prepare("DELETE FROM tv WHERE tvKey = ? ");
 	  st.bind( 1, showID );
+	  st.step();
+	  st.dispose();
+          
+          st = connection.prepare("DELETE FROM userTv WHERE show = ? ");
+	  st.bind( 1, showID );
+	  st.step();
+	  st.dispose();
+	}catch( SQLiteException e ){
+	  if( log ) System.out.println( "DB Delete Error: No show with ID# " + showID );
+	  return false;
+	}  
+
+	return true;
+      }
+    }).complete();
+  }
+  
+  public boolean deleteUserShow( final String jid, final int showID ){ 
+    return queue.execute( new SQLiteJob<Boolean>(){
+      protected Boolean job(SQLiteConnection connection){
+	SQLiteStatement st = null;
+
+	try{
+          st = connection.prepare("DELETE FROM userTv WHERE show = ? AND Jid = ?");
+	  st.bind( 1, showID );
+          st.bind( 2, jid );
 	  st.step();
 	  st.dispose();
 	}catch( SQLiteException e ){

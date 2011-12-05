@@ -1,5 +1,6 @@
-package JJB;
+package JJB.SQLite;
 
+import JJB.Processes.User;
 import java.util.Date;
 import java.util.ArrayList;
 import com.almworks.sqlite4java.SQLiteConnection;
@@ -20,10 +21,58 @@ public class UserQueries extends SQLiteQueries{
    * @param queue The queue for all SQLite Queries.
    * @param log If errors should be logged.
    */
-  public UserQueries( SQLiteQueue queue, boolean log ){
+  public UserQueries( SQLiteQueue queue, boolean log, String admin ){
     super( queue, log );
+    //Try to create admin user
+    createAdmin( admin );
   }
 
+    /** Crate an initial admin user, so someone has control over the bot
+    * 
+    * @param jid Jid of the admin user to create
+    * 
+    * @return boolean 
+    */ 
+  private boolean createAdmin( final String jid ){
+    return queue.execute( new SQLiteJob<Boolean>(){
+      protected Boolean job(SQLiteConnection connection){
+        SQLiteStatement st = null;
+
+        // If user does not exist create new one, if not admin promote admin, if admin do nothing
+        try{
+          st = connection.prepare("SELECT status FROM user WHERE Jid=?");
+          st.bind( 1, jid );
+          st.step();
+          if( st.hasRow() ){
+           //st.dispose();
+            if( st.columnString(0).equals( "admin" ) ){
+              System.out.println("Admin user exists");
+            }
+            else{st.dispose();
+              st = connection.prepare("UPDATE user SET status = 'admin' WHERE Jid = ? ");
+              st.bind( 1, jid );
+              st.step();
+              System.out.println("User in DB and promoted to admin");
+            }
+          }
+          else{
+            st.dispose();
+            st = connection.prepare("INSERT into user ( Jid, status, date ) VALUES( ?, 'admin', 'date' );");
+            st.bind( 1, jid );
+            st.step();
+            System.out.println("Created admin user.");
+          }
+          st.dispose();
+        }catch( SQLiteException e ){
+            if( log ) System.out.println( "Error creating initial admin User." );
+            e.printStackTrace();
+            return false;
+        }
+        return true;
+          }
+    }).complete();
+  }
+  
   /** Get users with certain status
    *
    * @param status Status of users to lookup.
@@ -232,4 +281,56 @@ public class UserQueries extends SQLiteQueries{
     }).complete();
   }
 
+  public ArrayList<Integer> getUserShows(){
+    return null;
+  }
+  
+  public boolean addUserShow( final String jid, final String[] showIDs ){
+    //if not in db look up and add with status user this has to happen in another class
+    return queue.execute( new SQLiteJob<Boolean>(){
+      protected Boolean job(SQLiteConnection connection){
+        for(int i = 2; i < showIDs.length; i++){
+          SQLiteStatement st = null;
+
+          try{
+            st = connection.prepare("INSERT into userTv ( Jid, show ) VALUES( ?, ?);");
+            st.bind( 1, jid );
+            st.bind( 2, Integer.parseInt( showIDs[i] ) );
+            st.step();
+            st.dispose();
+          }catch( SQLiteException | NumberFormatException e ){
+            if( log ) System.out.println( "DB Insert Error: Could not insert into userTv database." );
+          }
+        }
+        
+	return true;
+      }
+    }).complete();
+  }
+  
+  public boolean delUserShow( User user, int ShowID ){
+    return false;
+  }
+
+  public String getStatus( final String jid ){
+    return queue.execute( new SQLiteJob<String>(){
+      protected String job(SQLiteConnection connection){
+	SQLiteStatement st = null;
+        String toReturn = null;
+
+	try{
+	  st = connection.prepare("select status FROM user WHERE Jid = ? ");
+	  st.bind( 1, jid );
+	  st.step();
+          toReturn = st.columnString( 0 );
+	}catch( SQLiteException e ){
+	  if( log ) System.out.println( "DB Select Error: Jid not found: " + jid );
+	  return null;
+	}
+
+	return toReturn;
+      }
+    }).complete();
+  }
+  
 }
