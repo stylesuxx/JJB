@@ -33,19 +33,14 @@ public class InputProcessor extends Thread{
     * 
     * @param muc The MUC we are in
     */
-  public InputProcessor( SQLiteQueue queue, String admin ){
+  public InputProcessor( SQLiteQueue queue, String admin, MultiUserChat muc ){
     userQ = new UserQueries( queue, true, admin );
+    this.muc = muc;
     tvQ = new TvQueries( queue, true );
     userP = new UserProcesses( userQ );
     tvP = new ShowsProcesses( tvQ );
   }
 
-  /** Set the Muc for this Input Processor
-   * @oaram muc The Muc to process.
-   */
-  public void setMuc( MultiUserChat muc ){
-    this.muc = muc;
-  }
   
   /** This is our Jobqueue
    * 

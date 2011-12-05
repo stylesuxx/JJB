@@ -3,29 +3,41 @@ package JJB.SQLite;
 import JJB.Tv.NextEpisodeEntity;
 import JJB.Tv.TVEntity;
 import JJB.Tv.TVRageLookup;
+
 import java.util.ArrayList;
+
 import com.almworks.sqlite4java.SQLiteConnection;
 import com.almworks.sqlite4java.SQLiteStatement;
 import com.almworks.sqlite4java.SQLiteException;
 import com.almworks.sqlite4java.SQLiteQueue;
 import com.almworks.sqlite4java.SQLiteJob;
 
+/** This class Holds all the Queries on the Tv table
+ * 
+ * @author stylesuxx
+ * @version 0.2
+ */
 public class TvQueries extends SQLiteQueries{
+
+  /** Default Constructor
+   * 
+   * @param queue The Jobqueue to use.
+   * @param log If errors should be printed to the Terminal.
+   */
   public TvQueries( SQLiteQueue queue, boolean log ){
     super( queue, log );
   }
 
-  /** get all Show ID's from database
-    * 
-    * @return ArrayList<Integer>
-    */  
+  /** Get all Show ID's from database
+   * 
+   * @return ArrayList<Integer>
+   */  
   public ArrayList<Integer> getShowids(){
     return queue.execute( new SQLiteJob<ArrayList<Integer>>(){
       protected ArrayList<Integer> job(SQLiteConnection connection){
 	ArrayList<Integer> toReturn = new ArrayList<>();
 	try{
 	  SQLiteStatement st = connection.prepare( "SELECT tvKey from tv" );
-
 	  try {
 	    while( st.step() ){
 	      toReturn.add( st.columnInt(0) );
@@ -34,26 +46,24 @@ public class TvQueries extends SQLiteQueries{
 	    st.dispose();
 	  }
 	}catch( Exception e ){
-	  if( log ) System.out.println("DB Select Error: Could not get ID's" );
-	  e.printStackTrace();
+	  if( log ) System.out.println("DB Select Error: " + e.getMessage() );
 	}
-	return toReturn;
+
+        return toReturn;
       }
     }).complete();
   }
 
   /** Get all shows from database with the given status
-    * 
-    * @param status The status of the shows to be returned
-    * 
-    * @return Arraylist<TVEntity> 
-    */
+   * 
+   * @param status The status of the shows to be returned.
+   * @return ArrayList<TVEntity> 
+   */
   public ArrayList<TVEntity> getShows( final String status ){
     return queue.execute( new SQLiteJob<ArrayList<TVEntity>>(){
       protected ArrayList<TVEntity> job(SQLiteConnection connection){
 	ArrayList<TVEntity> toReturn = new ArrayList<>();
 	SQLiteStatement st = null;
-
 	try{
 	  if( status.equals( "all" ) ) st = connection.prepare( "SELECT * from tv" );
 	  else{
@@ -69,20 +79,24 @@ public class TvQueries extends SQLiteQueries{
 	    st.dispose();
 	  }
 	}catch( Exception e ){
-	  if( log ) System.out.println("DB Select Error: Could not get '" + status + "' shows" );
-	  e.printStackTrace();
+	  if( log ) System.out.println("DB Select Error: " + e.getMessage() );
 	}
+        
 	return toReturn;
       }
     }).complete();
   }
   
-    public ArrayList<TVEntity> getUserShows( final String jid ){
+  /** Get a users Watchlist shows from database
+   * 
+   * @param jid The Jid of the users whos Watchlist to return.
+   * @return ArrayList<TVEntity> 
+   */
+  public ArrayList<TVEntity> getUserShows( final String jid ){
     return queue.execute( new SQLiteJob<ArrayList<TVEntity>>(){
       protected ArrayList<TVEntity> job(SQLiteConnection connection){
 	ArrayList<TVEntity> toReturn = new ArrayList<>();
 	SQLiteStatement st = null;
-
 	try{
 	    st = connection.prepare( "SELECT * from tv WHERE tvKey in (select show from userTV where Jid = ?)" );
 	    st.bind( 1, jid );
@@ -95,20 +109,23 @@ public class TvQueries extends SQLiteQueries{
 	    st.dispose();
 	  }
 	}catch( Exception e ){
-	  if( log ) System.out.println("DB Select Error: Could not get Users '" + jid + "' shows" );
-	  e.printStackTrace();
+	  if( log ) System.out.println("DB Select Error: " + e.getMessage() );
 	}
 	return toReturn;
       }
     }).complete();
   }
   
-    public TVEntity getShowInfo( final int showID ){
+  /** Get Infos about a single show
+   * 
+   * @param showID ID of show to lookup.
+   * @return TVEntity
+   */
+  public TVEntity getShowInfo( final int showID ){
     return queue.execute( new SQLiteJob<TVEntity>(){
       protected TVEntity job(SQLiteConnection connection){
 	TVEntity toReturn = null;
 	SQLiteStatement st = null;
-
 	try{
 	  st = connection.prepare( "SELECT * from tv where tvKey = ?" );
           st.bind( 1, showID );
@@ -124,8 +141,7 @@ public class TvQueries extends SQLiteQueries{
           }
           else return null;
 	}catch( Exception e ){
-	  if( log ) System.out.println("DB Select Error: Could not get #" + showID + "'s info." );
-	  e.printStackTrace();
+	  if( log ) System.out.println("DB Select Error: " + e.getMessage() );
 	}
 	return toReturn;
       }
@@ -133,20 +149,18 @@ public class TvQueries extends SQLiteQueries{
   }
 
   /** Request a new show to be added to the database
-    * <ul>
-    * <li>Adds a show and its details to the database if found on tv Rage</li>
-    * <li>Returns the name of the show if found on TV Rage</li>
-    * </ul>
-    * 
-    * @param tv TVLookup Object
-    * 
-    * @return String The shows title
-    */
+   * <ul>
+   * <li>Adds a show and its details to the database if found on tv Rage</li>
+   * <li>Returns the name of the show if found on TV Rage</li>
+   * </ul>
+   * 
+   * @param tv TVLookup Object.
+   * @return String
+   */
   public String requestShow( final TVRageLookup tv, final String status ){
     return queue.execute( new SQLiteJob<String>(){
       protected String job(SQLiteConnection connection){
 	SQLiteStatement st = null;
-
 	try{
 	  st = connection.prepare("INSERT into tv ( tvKey, showname, airtime, airday, timezone, status, runtime ) VALUES( ?, ?, ?, ?, ?, ?, ? );");
 	  st.bind(1, tv.getShowid() );
@@ -179,21 +193,19 @@ public class TvQueries extends SQLiteQueries{
   }
 
   /** Request a new show to be added to the database with additional infos
-    * <ul>
-    * <li>Adds a show and its details to the database if found on tv Rage</li>
-    * <li>Returns the name of the show if found on TV Rage</li>
-    * </ul>
-    * 
-    * @param tv TVLookup Object
-    * @param nee NextEpisodeEntity Object
-    * 
-    * @return String The shows title
-    */
+   * <ul>
+   * <li>Adds a show and its details to the database if found on tv Rage</li>
+   * <li>Returns the name of the show if found on TV Rage</li>
+   * </ul>
+   * 
+   * @param tv TVLookup Object.
+   * @param nee NextEpisodeEntity Object.
+   * @return String
+   */
   public String requestShow( final TVRageLookup tv, final NextEpisodeEntity nee, final String status ){
     return queue.execute( new SQLiteJob<String>(){
       protected String job(SQLiteConnection connection){
 	SQLiteStatement st = null;
-
 	try{
 	  st = connection.prepare( "INSERT into tv ( tvKey, showname, airtime, airday, timezone, status, runtime, nextEpisode, nextSeason, nextTitle, nextDate ) VALUES( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? );" );
 	  st.bind( 1, tv.getShowid() );
@@ -230,13 +242,12 @@ public class TvQueries extends SQLiteQueries{
     }).complete();
   }
 
-  /** Update a schows next episode
-    *
-    * @param showID ID of show to update the next episode
-    * @param nee Infos about the upcomming episode or null 
-    * 
-    * @return boolean
-    */
+  /** Update a shows next episode
+   *
+   * @param showID ID of show to update the next episode.
+   * @param nee Infos about the upcoming episode or null.
+   * @return boolean
+   */
   public boolean updateShow( final int showID, final NextEpisodeEntity nee ){
     return queue.execute( new SQLiteJob<Boolean>(){
       protected Boolean job(SQLiteConnection connection){
@@ -258,8 +269,7 @@ public class TvQueries extends SQLiteQueries{
 	  st.step();
 
 	}catch( SQLiteException e ){
-	  if( log ) System.out.println( "DB Update Error: updating shows(" + showID + ") next episode" );
-	  e.printStackTrace();
+	  if( log ) System.out.println( "DB Update Error: " + e.getMessage() );
 	  return false;
 	}
 	  st.dispose();
@@ -273,19 +283,16 @@ public class TvQueries extends SQLiteQueries{
   }
 
   /** Change status of a show
-    * 
-    * @param showID ID of the show to approve
-    * @param status The status to set the show to
-    * 
-    * @return boolean True if show was in database
-    */
+   * 
+   * @param showID ID of the show to change the status.
+   * @param status The status to set the show to.
+   * @return boolean
+   */
   // TODO: no error if show not in DB
   public boolean setShowStatus( final int showID, final String status){
     return queue.execute( new SQLiteJob<Boolean>(){
       protected Boolean job(SQLiteConnection connection){
 	SQLiteStatement st = null;
-	boolean toReturn = false;
-
 	try{
 	  st = connection.prepare("UPDATE tv SET status=? WHERE tvKey = ? ");
 	  st.bind( 2, showID );
@@ -303,17 +310,14 @@ public class TvQueries extends SQLiteQueries{
   }
 
   /** Deletes show from database
-    * 
-    * @param showID ID of show to delete
-    * 
-    * @return boolean 
-    */
+   * 
+   * @param showID ID of show to delete.
+   * @return boolean 
+   */
   public boolean deleteShow( final int showID ){ 
     return queue.execute( new SQLiteJob<Boolean>(){
       protected Boolean job(SQLiteConnection connection){
 	SQLiteStatement st = null;
-	boolean toReturn = false;
-
 	try{
 	  st = connection.prepare("DELETE FROM tv WHERE tvKey = ? ");
 	  st.bind( 1, showID );
@@ -334,11 +338,16 @@ public class TvQueries extends SQLiteQueries{
     }).complete();
   }
   
+  /** Delete a show from a private Watchlist
+   * 
+   * @param jid Jid of user who wants to delete a show.
+   * @param showID ID of show to delete.
+   * @return boolean
+   */
   public boolean deleteUserShow( final String jid, final int showID ){ 
     return queue.execute( new SQLiteJob<Boolean>(){
       protected Boolean job(SQLiteConnection connection){
 	SQLiteStatement st = null;
-
 	try{
           st = connection.prepare("DELETE FROM userTv WHERE show = ? AND Jid = ?");
 	  st.bind( 1, showID );

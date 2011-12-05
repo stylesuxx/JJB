@@ -15,17 +15,12 @@ import com.almworks.sqlite4java.SQLiteStatement;
 public class DataBase{
   private File dbFile;
   private SQLiteConnection db;
-  private boolean log;
-  private String admin;
 
-  /** Default constructor
+  /** Default Constructor
     * 
-    * @param database Location of database to use
-    * @param admin User who is to add as admin to the database
+    * @param dbFile Database File to use.
     */
-  public DataBase( String admin, File dbFile, boolean log){
-    this.log = log;
-    this.admin = admin;
+  public DataBase(File dbFile){
     this.dbFile = dbFile;
   }
   
@@ -58,10 +53,6 @@ public class DataBase{
 
       System.out.println( "Created new Database: " + dbFile.toString() );
     }catch( Exception e ){ System.out.println("Using existing Database: " + dbFile.toString() ); }
-
-    // Try to create admin if not already exists
-    // Can't we do this somewhere else so we can move the code out here to the querie file?
-    // createAdmin( admin );
   }
 
   /** Close the database  

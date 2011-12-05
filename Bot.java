@@ -1,11 +1,12 @@
-
-
 import JJB.SQLite.DataBase;
 import JJB.Processes.InputProcessor;
 import JJB.Listeners.PrivateListener;
 import JJB.Listeners.MucListener;
-import com.almworks.sqlite4java.SQLiteQueue;
+
 import java.io.File;
+
+import com.almworks.sqlite4java.SQLiteQueue;
+
 import org.jivesoftware.smack.ConnectionConfiguration;
 import org.jivesoftware.smack.XMPPConnection;
 import org.jivesoftware.smack.XMPPException;
@@ -16,10 +17,10 @@ import org.jivesoftware.smack.ChatManagerListener;
 import org.jivesoftware.smack.Chat;
 
 /** <h1>Bot</h1>
- * <p>Logs the bot in, joins a room and sets the message listeners</p>
+ * <p>Logs the bot in, connects to the database, creates an input processor, joins a room and sets the message listeners</p>
  * 
  * @author stylesuxx
- * @version 0.1
+ * @version 0.2
  */
 public class Bot extends Thread{
   private XMPPConnection con = null;
@@ -30,7 +31,7 @@ public class Bot extends Thread{
   DataBase dbase;
   SQLiteQueue queue;
   
-  /** Default Construcotor
+  /** Default Constructor
    * 
    * @param jid The Bot's JID
    * @param pass The Bot's Password
@@ -49,13 +50,13 @@ public class Bot extends Thread{
     this.admin = admin;
     this.port = port;
     // Connect to Database
-    dbase = new DataBase( admin, db, log );
+    dbase = new DataBase( db );
     dbase.connect();
     // Create and Start Queu
     queue = new SQLiteQueue( db );
     queue.start();
     // Start Input Processor
-    ip = new InputProcessor( queue, admin );
+    ip = new InputProcessor( queue, admin, muc );
   }
 
   /** Login to the Jabber Server or die trying
@@ -69,14 +70,14 @@ public class Bot extends Thread{
       con.login( user, pass, res );
     }catch( XMPPException e ){ 
       System.out.println( "Connection to Jabber Server failed: " + e.getMessage() );
-      ip.quit();
+      disconnect();
      }
-    //chatmanager = con.getChatManager();
     con.getChatManager().addChatListener(new ChatManagerListener(){
       public void chatCreated(final Chat chat, final boolean createdLocally){
 	chat.addMessageListener( new PrivateListener( ip ) );
       }
     });
+    
     System.out.println( "Logged in as: " + user + "@" + server );
   }
 
@@ -93,12 +94,15 @@ public class Bot extends Thread{
       muc.join( nick, pass, hist, 1000 );
     }catch( XMPPException e ){
       System.out.println( "Could not join the room: " + e.getMessage() );
-      System.exit(-1);
+      disconnect();
      }    
     muc.addMessageListener( new MucListener( ip ,  room + "/" + nick, muc ) );
+    
     System.out.println( "Joined room: " + room + " as " + nick );
   }
 
+  /** Disconnect the Bot in a clean way
+   */
   public void disconnect(){
     // stop queue
     queue.stop( true );
@@ -108,6 +112,10 @@ public class Bot extends Thread{
     con.disconnect();
   }
   
+  /** Check if Input Processor is running, else shut down bot
+   * 
+   * @return boolean
+   */
   public boolean isStopped(){
     if(ip.isStopped()){
      disconnect();

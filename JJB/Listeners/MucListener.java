@@ -2,6 +2,7 @@ package JJB.Listeners;
 
 import JJB.Processes.InputProcessor;
 import JJB.Processes.User;
+
 import org.jivesoftware.smack.packet.Message;
 import org.jivesoftware.smack.PacketListener;
 import org.jivesoftware.smack.packet.Packet;
@@ -11,7 +12,7 @@ import org.jivesoftware.smackx.muc.MultiUserChat;
  * Handles all incoming messages from MUC and ads it to the Job Stack
  * 
  * @author stylesuxx
- * @version 0.1
+ * @version 0.2
  */
 public class MucListener implements PacketListener{
   InputProcessor ip;
@@ -19,6 +20,7 @@ public class MucListener implements PacketListener{
   MultiUserChat muc = null;
 
   /** Default Constructor
+   * 
    * @param pi ProcessInput Queue to use.
    * @param ignore Nick to ignore in MUC, this is the Bot's Jid.
    * @param muc The Muc the Bot is in.
@@ -27,12 +29,11 @@ public class MucListener implements PacketListener{
     this.ip = ip;
     this.ignore = ignore;
     this.muc = muc;
-    ip.setMuc( muc );
   }
 
-  /** Process incoming package - in case it is a message, from Muc
+  /** Process incoming package from Muc
    * 
-   * @param p Packet to process
+   * @param p Packet to process.
    */
   public void processPacket( Packet p ){
     if( p instanceof Message ){

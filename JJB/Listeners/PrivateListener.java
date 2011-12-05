@@ -2,6 +2,7 @@ package JJB.Listeners;
 
 import JJB.Processes.InputProcessor;
 import JJB.Processes.User;
+
 import org.jivesoftware.smack.packet.Message;
 import org.jivesoftware.smack.MessageListener;
 import org.jivesoftware.smack.Chat;
@@ -16,7 +17,7 @@ public class PrivateListener implements MessageListener{
 
   /** Default Constructor
    * 
-   * @param pc ProcessInput Queue to use
+   * @param ip Input Processor to use.
    */
   public PrivateListener( InputProcessor ip ){
     this.ip = ip;
@@ -24,8 +25,8 @@ public class PrivateListener implements MessageListener{
 
   /** Process incoming private messages
    * 
-   * @param chat Chat Object to talk back to user
-   * @param m Message to process
+   * @param chat Chat Object to talk back to user.
+   * @param m Message to process.
    */
   public void processMessage( Chat chat, Message m ){
     ip.newMessage( m.getBody(), new User( m.getFrom().split( "/" )[0], chat ), "private" );
